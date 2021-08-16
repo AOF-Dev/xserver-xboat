@@ -96,9 +96,6 @@ int
 hostx_want_preexisting_window(KdScreenInfo *screen);
 
 void
- hostx_use_preexisting_window(unsigned long win_id);
-
-void
  hostx_use_resname(char *name, int fromcmd);
 
 void
@@ -127,9 +124,6 @@ int
 
 int
 hostx_get_server_depth(KdScreenInfo *screen);
-
-int
-hostx_get_bpp(KdScreenInfo *screen);
 
 void
 hostx_get_visual_masks(KdScreenInfo *screen,
@@ -165,26 +159,6 @@ hostx_has_queued_event(void);
 
 int
 hostx_get_screen(void);
-
-int
- hostx_get_window(int a_screen_number);
-
-int
- hostx_get_window_attributes(int a_window, EphyrHostWindowAttributes * a_attr);
-
-int
- hostx_get_visuals_info(EphyrHostVisualInfo ** a_visuals, int *a_num_entries);
-
-int hostx_create_window(int a_screen_number,
-                        EphyrBox * a_geometry,
-                        int a_visual_id, int *a_host_win /*out parameter */ );
-
-int hostx_destroy_window(int a_win);
-
-int hostx_set_window_geometry(int a_win, EphyrBox * a_geo);
-
-int hostx_set_window_bounding_rectangles(int a_window,
-                                         EphyrRect * a_rects, int a_num_rects);
 
 int hostx_has_extension(xcb_extension_t *extension);
 
