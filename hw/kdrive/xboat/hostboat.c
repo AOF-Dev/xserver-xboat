@@ -39,7 +39,6 @@
 #include <err.h>
 
 #include <sys/ipc.h>
-#include <sys/shm.h>
 #include <sys/time.h>
 #include <sys/mman.h>
 
@@ -48,7 +47,6 @@
 #include <xcb/xproto.h>
 #include <xcb/xcb_icccm.h>
 #include <xcb/xcb_aux.h>
-#include <xcb/shm.h>
 #include <xcb/xcb_image.h>
 #include <xcb/shape.h>
 #include <xcb/xcb_keysyms.h>
@@ -75,8 +73,6 @@ struct EphyrHostXVars {
     int depth;
     Bool use_sw_cursor;
     Bool use_fullscreen;
-    Bool have_shm;
-    Bool have_shm_fd_passing;
 
     int n_screens;
     KdScreenInfo **screens;
@@ -419,101 +415,6 @@ hostx_set_title(char *title)
 #pragma does_not_return(exit)
 #endif
 
-static void
-hostx_init_shm(void)
-{
-    /* Try to get share memory ximages for a little bit more speed */
-    if (!hostx_has_extension(&xcb_shm_id) || getenv("XEPHYR_NO_SHM")) {
-        HostX.have_shm = FALSE;
-    } else {
-        xcb_generic_error_t *error = NULL;
-        xcb_shm_query_version_cookie_t cookie;
-        xcb_shm_query_version_reply_t *reply;
-
-        HostX.have_shm = TRUE;
-        HostX.have_shm_fd_passing = FALSE;
-        cookie = xcb_shm_query_version(HostX.conn);
-        reply = xcb_shm_query_version_reply(HostX.conn, cookie, &error);
-        if (reply) {
-            HostX.have_shm_fd_passing =
-                    (reply->major_version == 1 && reply->minor_version >= 2) ||
-                    reply->major_version > 1;
-            free(reply);
-        }
-        free(error);
-    }
-}
-
-static Bool
-hostx_create_shm_segment(xcb_shm_segment_info_t *shminfo, size_t size)
-{
-    shminfo->shmaddr = NULL;
-
-    if (HostX.have_shm_fd_passing) {
-        xcb_generic_error_t *error = NULL;
-        xcb_shm_create_segment_cookie_t cookie;
-        xcb_shm_create_segment_reply_t *reply;
-
-        shminfo->shmseg = xcb_generate_id(HostX.conn);
-        cookie = xcb_shm_create_segment(HostX.conn, shminfo->shmseg, size, TRUE);
-        reply = xcb_shm_create_segment_reply(HostX.conn, cookie, &error);
-        if (reply) {
-            int *fds = reply->nfd == 1 ?
-                        xcb_shm_create_segment_reply_fds(HostX.conn, reply) : NULL;
-            if (fds) {
-                shminfo->shmaddr =
-                        (uint8_t *)mmap(0, size, PROT_READ|PROT_WRITE, MAP_SHARED, fds[0], 0);
-                close(fds[0]);
-                if (shminfo->shmaddr == MAP_FAILED)
-                    shminfo->shmaddr = NULL;
-            }
-            if (!shminfo->shmaddr)
-                xcb_shm_detach(HostX.conn, shminfo->shmseg);
-
-            free(reply);
-        }
-        free(error);
-    } else {
-        shminfo->shmid = shmget(IPC_PRIVATE, size, IPC_CREAT|0666);
-        if (shminfo->shmid != -1) {
-            shminfo->shmaddr = shmat(shminfo->shmid, 0, 0);
-            if (shminfo->shmaddr == (void *)-1) {
-                shminfo->shmaddr = NULL;
-            } else {
-                xcb_generic_error_t *error = NULL;
-                xcb_void_cookie_t cookie;
-
-                shmctl(shminfo->shmid, IPC_RMID, 0);
-
-                shminfo->shmseg = xcb_generate_id(HostX.conn);
-                cookie = xcb_shm_attach_checked(HostX.conn, shminfo->shmseg, shminfo->shmid, TRUE);
-                error = xcb_request_check(HostX.conn, cookie);
-
-                if (error) {
-                    free(error);
-                    shmdt(shminfo->shmaddr);
-                    shminfo->shmaddr = NULL;
-                }
-            }
-        }
-    }
-
-    return shminfo->shmaddr != NULL;
-}
-
-static void
-hostx_destroy_shm_segment(xcb_shm_segment_info_t *shminfo, size_t size)
-{
-    xcb_shm_detach(HostX.conn, shminfo->shmseg);
-
-    if (HostX.have_shm_fd_passing)
-        munmap(shminfo->shmaddr, size);
-    else
-        shmdt(shminfo->shmaddr);
-
-    shminfo->shmaddr = NULL;
-}
-
 int
 hostx_init(void)
 {
@@ -735,20 +636,6 @@ hostx_init(void)
         }
     }
 
-    hostx_init_shm();
-    if (HostX.have_shm) {
-        /* Really really check we have shm - better way ?*/
-        xcb_shm_segment_info_t shminfo;
-        if (!hostx_create_shm_segment(&shminfo, 1)) {
-            fprintf(stderr, "\nXephyr unable to use SHM XImages\n");
-            HostX.have_shm = FALSE;
-        } else {
-            hostx_destroy_shm_segment(&shminfo, 1);
-        }
-    } else {
-        fprintf(stderr, "\nXephyr unable to use SHM XImages\n");
-    }
-
     xcb_flush(HostX.conn);
 
     /* Setup the pause time between paints when debugging updates */
@@ -861,7 +748,6 @@ hostx_screen_init(KdScreenInfo *screen,
                   int *bytes_per_line, int *bits_per_pixel)
 {
     EphyrScrPriv *scrpriv = screen->driver;
-    Bool shm_success = FALSE;
 
     if (!scrpriv) {
         fprintf(stderr, "%s: Error in accessing hostx data\n", __func__);
@@ -876,11 +762,7 @@ hostx_screen_init(KdScreenInfo *screen,
          * i.ie called by server reset
          */
 
-        if (HostX.have_shm) {
-            xcb_image_destroy(scrpriv->ximg);
-            hostx_destroy_shm_segment(&scrpriv->shminfo, scrpriv->shmsize);
-        }
-        else {
+        {
             free(scrpriv->ximg->data);
             scrpriv->ximg->data = NULL;
 
@@ -888,32 +770,7 @@ hostx_screen_init(KdScreenInfo *screen,
         }
     }
 
-    if (!ephyr_glamor && HostX.have_shm) {
-        scrpriv->ximg = xcb_image_create_native(HostX.conn,
-                                                width,
-                                                buffer_height,
-                                                XCB_IMAGE_FORMAT_Z_PIXMAP,
-                                                HostX.depth,
-                                                NULL,
-                                                ~0,
-                                                NULL);
-
-        scrpriv->shmsize = scrpriv->ximg->stride * buffer_height;
-        if (!hostx_create_shm_segment(&scrpriv->shminfo,
-                                      scrpriv->shmsize)) {
-            EPHYR_DBG
-                ("Can't create SHM Segment, falling back to plain XImages");
-            HostX.have_shm = FALSE;
-            xcb_image_destroy(scrpriv->ximg);
-        }
-        else {
-            EPHYR_DBG("SHM segment created %p", scrpriv->shminfo.shmaddr);
-            scrpriv->ximg->data = scrpriv->shminfo.shmaddr;
-            shm_success = TRUE;
-        }
-    }
-
-    if (!ephyr_glamor && !shm_success) {
+    if (!ephyr_glamor) {
         EPHYR_DBG("Creating image %dx%d for screen scrpriv=%p\n",
                   width, buffer_height, scrpriv);
         scrpriv->ximg = xcb_image_create_native(HostX.conn,
@@ -1094,13 +951,7 @@ hostx_paint_rect(KdScreenInfo *screen,
             }
     }
 
-    if (HostX.have_shm) {
-        xcb_image_shm_put(HostX.conn, scrpriv->win,
-                          HostX.gc, scrpriv->ximg,
-                          scrpriv->shminfo,
-                          sx, sy, dx, dy, width, height, FALSE);
-    }
-    else {
+    {
         xcb_image_t *subimg = xcb_image_subimage(scrpriv->ximg, sx, sy,
                                                  width, height, 0, 0, 0);
         xcb_image_t *img = xcb_image_native(HostX.conn, subimg, 1);
