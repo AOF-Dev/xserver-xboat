@@ -30,7 +30,6 @@
 #include "ephyrlog.h"
 #include "glx_extinit.h"
 
-extern Window EphyrPreExistingHostWin;
 extern Bool EphyrWantGrayScale;
 extern Bool EphyrWantResize;
 extern Bool EphyrWantNoHostGrab;
@@ -40,14 +39,11 @@ extern Bool ephyr_glamor, ephyr_glamor_gles2, ephyr_glamor_skip_present;
 
 extern Bool ephyrNoXV;
 
-void processScreenOrOutputArg(const char *screen_size, const char *output, char *parent_id);
-void processOutputArg(const char *output, char *parent_id);
-void processScreenArg(const char *screen_size, char *parent_id);
+void processScreenArg(const char *screen_size);
 
 int
 main(int argc, char *argv[], char *envp[])
 {
-    hostx_use_resname(basename(argv[0]), 0);
     return dix_main(argc, argv, envp);
 }
 
@@ -121,11 +117,9 @@ ddxUseMsg(void)
 {
     KdUseMsg();
 
-    ErrorF("\nXephyr Option Usage:\n");
-    ErrorF("-parent <XID>        Use existing window as Xephyr root win\n");
-    ErrorF("-sw-cursor           Render cursors in software in Xephyr\n");
-    ErrorF("-fullscreen          Attempt to run Xephyr fullscreen\n");
-    ErrorF("-output <NAME>       Attempt to run Xephyr fullscreen (restricted to given output geometry)\n");
+    ErrorF("\nXboat Option Usage:\n");
+    ErrorF("-sw-cursor           Render cursors in software in Xboat\n");
+    ErrorF("-fullscreen          Attempt to run Xboat fullscreen\n");
     ErrorF("-grayscale           Simulate 8bit grayscale\n");
     ErrorF("-resizeable          Make Xephyr windows resizeable\n");
 #ifdef GLAMOR
@@ -137,15 +131,12 @@ ddxUseMsg(void)
         ("-fakexa              Simulate acceleration using software rendering\n");
     ErrorF("-verbosity <level>   Set log verbosity level\n");
     ErrorF("-noxv                do not use XV\n");
-    ErrorF("-name [name]         define the name in the WM_CLASS property\n");
-    ErrorF
-        ("-title [title]       set the window title in the WM_NAME property\n");
     ErrorF("-no-host-grab        Disable grabbing the keyboard and mouse.\n");
     ErrorF("\n");
 }
 
 void
-processScreenOrOutputArg(const char *screen_size, const char *output, char *parent_id)
+processScreenArg(const char *screen_size)
 {
     KdCardInfo *card;
 
@@ -154,8 +145,6 @@ processScreenOrOutputArg(const char *screen_size, const char *output, char *pare
 
     if (card) {
         KdScreenInfo *screen;
-        unsigned long p_id = 0;
-        Bool use_geometry;
 
         screen = KdScreenInfoAdd(card);
         KdParseScreen(screen, screen_size);
@@ -163,71 +152,22 @@ processScreenOrOutputArg(const char *screen_size, const char *output, char *pare
         if (!screen->driver)
             FatalError("Couldn't alloc screen private\n");
 
-        if (parent_id) {
-            p_id = strtol(parent_id, NULL, 0);
-        }
-
-        use_geometry = (strchr(screen_size, '+') != NULL);
         EPHYR_DBG("screen number:%d\n", screen->mynum);
-        hostx_add_screen(screen, p_id, screen->mynum, use_geometry, output);
+        hostx_add_screen(screen, screen->mynum);
     }
     else {
         ErrorF("No matching card found!\n");
     }
 }
 
-void
-processScreenArg(const char *screen_size, char *parent_id)
-{
-    processScreenOrOutputArg(screen_size, NULL, parent_id);
-}
-
-void
-processOutputArg(const char *output, char *parent_id)
-{
-    processScreenOrOutputArg("100x100+0+0", output, parent_id);
-}
-
 int
 ddxProcessArgument(int argc, char **argv, int i)
 {
-    static char *parent = NULL;
-
     EPHYR_DBG("mark argv[%d]='%s'", i, argv[i]);
 
-    if (!strcmp(argv[i], "-parent")) {
-        if (i + 1 < argc) {
-            int j;
-
-            /* If parent is specified and a screen argument follows, don't do
-             * anything, let the -screen handling init the rest */
-            for (j = i; j < argc; j++) {
-                if (!strcmp(argv[j], "-screen")) {
-                    parent = argv[i + 1];
-                    return 2;
-                }
-            }
-
-            processScreenArg("100x100", argv[i + 1]);
-            return 2;
-        }
-
-        UseMsg();
-        exit(1);
-    }
-    else if (!strcmp(argv[i], "-screen")) {
+    if (!strcmp(argv[i], "-screen")) {
         if ((i + 1) < argc) {
-            processScreenArg(argv[i + 1], parent);
-            parent = NULL;
-            return 2;
-        }
-
-        UseMsg();
-        exit(1);
-    }
-    else if (!strcmp(argv[i], "-output")) {
-        if (i + 1 < argc) {
-            processOutputArg(argv[i + 1], NULL);
+            processScreenArg(argv[i + 1]);
             return 2;
         }
 
@@ -236,10 +176,6 @@ ddxProcessArgument(int argc, char **argv, int i)
     }
     else if (!strcmp(argv[i], "-sw-cursor")) {
         hostx_use_sw_cursor();
-        return 1;
-    }
-    else if (!strcmp(argv[i], "-host-cursor")) {
-        /* Compatibility with the old command line argument, now the default. */
         return 1;
     }
     else if (!strcmp(argv[i], "-fullscreen")) {
@@ -302,45 +238,9 @@ ddxProcessArgument(int argc, char **argv, int i)
         EPHYR_LOG("no XVideo enabled\n");
         return 1;
     }
-    else if (!strcmp(argv[i], "-name")) {
-        if (i + 1 < argc && argv[i + 1][0] != '-') {
-            hostx_use_resname(argv[i + 1], 1);
-            return 2;
-        }
-        else {
-            UseMsg();
-            return 0;
-        }
-    }
-    else if (!strcmp(argv[i], "-title")) {
-        if (i + 1 < argc && argv[i + 1][0] != '-') {
-            hostx_set_title(argv[i + 1]);
-            return 2;
-        }
-        else {
-            UseMsg();
-            return 0;
-        }
-    }
     else if (argv[i][0] == ':') {
         hostx_set_display_name(argv[i]);
     }
-    /* Xnest compatibility */
-    else if (!strcmp(argv[i], "-display")) {
-        hostx_set_display_name(argv[i + 1]);
-        return 2;
-    }
-    else if (!strcmp(argv[i], "-sync") ||
-             !strcmp(argv[i], "-full") ||
-             !strcmp(argv[i], "-sss") || !strcmp(argv[i], "-install")) {
-        return 1;
-    }
-    else if (!strcmp(argv[i], "-bw") ||
-             !strcmp(argv[i], "-class") ||
-             !strcmp(argv[i], "-geometry") || !strcmp(argv[i], "-scrns")) {
-        return 2;
-    }
-    /* end Xnest compat */
     else if (!strcmp(argv[i], "-no-host-grab")) {
         EphyrWantNoHostGrab = 1;
         return 1;

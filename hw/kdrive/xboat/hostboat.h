@@ -82,24 +82,10 @@ xcb_cursor_t
  hostx_get_empty_cursor(void);
 
 void
- hostx_get_output_geometry(const char *output,
-                           int *x, int *y,
-                           int *width, int *height);
-
-void
  hostx_use_fullscreen(void);
 
 int
  hostx_want_fullscreen(void);
-
-int
-hostx_want_preexisting_window(KdScreenInfo *screen);
-
-void
- hostx_use_resname(char *name, int fromcmd);
-
-void
- hostx_set_title(char *name);
 
 void
  hostx_handle_signal(int signum);
@@ -108,7 +94,7 @@ int
  hostx_init(void);
 
 void
-hostx_add_screen(KdScreenInfo *screen, unsigned long win_id, int screen_num, Bool use_geometry, const char *output);
+hostx_add_screen(KdScreenInfo *screen, int screen_num);
 
 void
  hostx_set_display_name(char *name);

@@ -434,8 +434,7 @@ ephyrRandRGetInfo(ScreenPtr pScreen, Rotation * rotations)
 
     *rotations = RR_Rotate_All | RR_Reflect_All;
 
-    if (!hostx_want_preexisting_window(screen)
-        && !hostx_want_fullscreen()) {  /* only if no -parent switch */
+    if (!hostx_want_fullscreen()) {
         while (sizes[n].width != 0 && sizes[n].height != 0) {
             RRRegisterSize(pScreen,
                            sizes[n].width,
@@ -850,8 +849,7 @@ screen_from_window(Window w)
         EphyrScrPriv *scrpriv = screen->driver;
 
         if (scrpriv->win == w
-            || scrpriv->peer_win == w
-            || scrpriv->win_pre_existing == w) {
+            || scrpriv->peer_win == w) {
             return screen;
         }
     }
@@ -1102,8 +1100,7 @@ ephyrProcessConfigureNotify(xcb_generic_event_t *xev)
     KdScreenInfo *screen = screen_from_window(configure->window);
     EphyrScrPriv *scrpriv = screen->driver;
 
-    if (!scrpriv ||
-        (scrpriv->win_pre_existing == None && !EphyrWantResize)) {
+    if (!scrpriv || !EphyrWantResize) {
         return;
     }
 
