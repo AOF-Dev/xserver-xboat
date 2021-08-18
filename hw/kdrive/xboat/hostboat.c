@@ -67,7 +67,6 @@ struct EphyrHostXVars {
     xcb_visualtype_t *visual;
     Window winroot;
     xcb_gcontext_t  gc;
-    xcb_render_pictformat_t argb_format;
     xcb_generic_event_t *saved_event;
     int depth;
     Bool use_sw_cursor;
@@ -100,9 +99,6 @@ hostx_has_extension(xcb_extension_t *extension)
 
     return rep && rep->present;
 }
-
-static void
- hostx_set_fullscreen_hint(void);
 
 #define host_depth_matches_server(_vars) (HostX.depth == (_vars)->server_depth)
 
@@ -198,38 +194,6 @@ hostx_want_fullscreen(void)
     return HostX.use_fullscreen;
 }
 
-static xcb_intern_atom_cookie_t cookie_WINDOW_STATE,
-				cookie_WINDOW_STATE_FULLSCREEN;
-
-static void
-hostx_set_fullscreen_hint(void)
-{
-    xcb_atom_t atom_WINDOW_STATE, atom_WINDOW_STATE_FULLSCREEN;
-    int index;
-    xcb_intern_atom_reply_t *reply;
-
-    reply = xcb_intern_atom_reply(HostX.conn, cookie_WINDOW_STATE, NULL);
-    atom_WINDOW_STATE = reply->atom;
-    free(reply);
-
-    reply = xcb_intern_atom_reply(HostX.conn, cookie_WINDOW_STATE_FULLSCREEN,
-                                  NULL);
-    atom_WINDOW_STATE_FULLSCREEN = reply->atom;
-    free(reply);
-
-    for (index = 0; index < HostX.n_screens; index++) {
-        EphyrScrPriv *scrpriv = HostX.screens[index]->driver;
-        xcb_change_property(HostX.conn,
-                            PropModeReplace,
-                            scrpriv->win,
-                            atom_WINDOW_STATE,
-                            XCB_ATOM_ATOM,
-                            32,
-                            1,
-                            &atom_WINDOW_STATE_FULLSCREEN);
-    }
-}
-
 static void
 hostx_toggle_damage_debug(void)
 {
@@ -305,13 +269,6 @@ hostx_init(void)
         HostX.visual = xcb_aux_find_visual_by_id(xscreen,xscreen->root_visual);
 
     xcb_create_gc(HostX.conn, HostX.gc, HostX.winroot, 0, NULL);
-    cookie_WINDOW_STATE = xcb_intern_atom(HostX.conn, FALSE,
-                                          strlen("_NET_WM_STATE"),
-                                          "_NET_WM_STATE");
-    cookie_WINDOW_STATE_FULLSCREEN =
-        xcb_intern_atom(HostX.conn, FALSE,
-                        strlen("_NET_WM_STATE_FULLSCREEN"),
-                        "_NET_WM_STATE_FULLSCREEN");
 
     for (index = 0; index < HostX.n_screens; index++) {
         KdScreenInfo *screen = HostX.screens[index];
@@ -341,8 +298,6 @@ hostx_init(void)
             if (HostX.use_fullscreen) {
                 scrpriv->win_width  = xscreen->width_in_pixels;
                 scrpriv->win_height = xscreen->height_in_pixels;
-
-                hostx_set_fullscreen_hint();
             }
         }
     }
