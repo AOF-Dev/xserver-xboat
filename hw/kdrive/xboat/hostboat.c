@@ -66,7 +66,6 @@ struct EphyrHostXVars {
     int screen;
     xcb_visualtype_t *visual;
     Window winroot;
-    xcb_gcontext_t  gc;
     xcb_generic_event_t *saved_event;
     int depth;
     Bool use_sw_cursor;
@@ -217,14 +216,8 @@ hostx_init(void)
 {
     uint32_t attrs[2];
     uint32_t attr_mask = 0;
-    uint16_t red, green, blue;
-    uint32_t pixel;
     int index;
-    char *tmpstr;
-    char *class_hint;
-    size_t class_len;
     xcb_screen_t *xscreen;
-    xcb_rectangle_t rect = { 0, 0, 1, 1 };
 
     attrs[0] =
         XCB_EVENT_MASK_BUTTON_PRESS
@@ -250,7 +243,6 @@ hostx_init(void)
 
     xscreen = xcb_aux_get_screen(HostX.conn, HostX.screen);
     HostX.winroot = xscreen->root;
-    HostX.gc = xcb_generate_id(HostX.conn);
     HostX.depth = xscreen->root_depth;
 #ifdef GLAMOR
     if (ephyr_glamor) {
@@ -267,8 +259,6 @@ hostx_init(void)
     } else
 #endif
         HostX.visual = xcb_aux_find_visual_by_id(xscreen,xscreen->root_visual);
-
-    xcb_create_gc(HostX.conn, HostX.gc, HostX.winroot, 0, NULL);
 
     for (index = 0; index < HostX.n_screens; index++) {
         KdScreenInfo *screen = HostX.screens[index];
@@ -302,30 +292,7 @@ hostx_init(void)
         }
     }
 
-    if (!xcb_aux_parse_color("red", &red, &green, &blue)) {
-        xcb_lookup_color_cookie_t c =
-            xcb_lookup_color(HostX.conn, xscreen->default_colormap, 3, "red");
-        xcb_lookup_color_reply_t *reply =
-            xcb_lookup_color_reply(HostX.conn, c, NULL);
-        red = reply->exact_red;
-        green = reply->exact_green;
-        blue = reply->exact_blue;
-        free(reply);
-    }
-
-    {
-        xcb_alloc_color_cookie_t c = xcb_alloc_color(HostX.conn,
-                                                     xscreen->default_colormap,
-                                                     red, green, blue);
-        xcb_alloc_color_reply_t *r = xcb_alloc_color_reply(HostX.conn, c, NULL);
-        red = r->red;
-        green = r->green;
-        blue = r->blue;
-        pixel = r->pixel;
-        free(r);
-    }
-
-    xcb_change_gc(HostX.conn, HostX.gc, XCB_GC_FOREGROUND, &pixel);
+    HostX.debug_fill_color = 0x000000ff; // red for RGBA8888
 
     {
         CursorVisible = TRUE;
@@ -639,7 +606,7 @@ hostx_paint_rect(KdScreenInfo *screen,
         xcb_image_t *subimg = xcb_image_subimage(scrpriv->ximg, sx, sy,
                                                  width, height, 0, 0, 0);
         xcb_image_t *img = xcb_image_native(HostX.conn, subimg, 1);
-        xcb_image_put(HostX.conn, scrpriv->win, HostX.gc, img, dx, dy, 0);
+        // put subimg to win at dx, dy
         if (subimg != img)
             xcb_image_destroy(img);
         xcb_image_destroy(subimg);
@@ -655,8 +622,6 @@ hostx_paint_debug_rect(KdScreenInfo *screen,
     EphyrScrPriv *scrpriv = screen->driver;
     struct timespec tspec;
     xcb_rectangle_t rect = { .x = x, .y = y, .width = width, .height = height };
-    xcb_void_cookie_t cookie;
-    xcb_generic_error_t *e;
 
     tspec.tv_sec = HostX.damage_debug_msec / (1000000);
     tspec.tv_nsec = (HostX.damage_debug_msec % 1000000) * 1000;
@@ -666,10 +631,7 @@ hostx_paint_debug_rect(KdScreenInfo *screen,
 
     /* fprintf(stderr, "Xephyr updating: %i+%i %ix%i\n", x, y, width, height); */
 
-    cookie = xcb_poly_fill_rectangle_checked(HostX.conn, scrpriv->win,
-                                             HostX.gc, 1, &rect);
-    e = xcb_request_check(HostX.conn, cookie);
-    free(e);
+    // fill rect with debug_fill_color
 
     /* nanosleep seems to work better than usleep for me... */
     nanosleep(&tspec, NULL);
