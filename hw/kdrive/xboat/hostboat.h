@@ -72,14 +72,8 @@ typedef struct {
 int
 hostx_want_screen_geometry(KdScreenInfo *screen, int *width, int *height, int *x, int *y);
 
-int
- hostx_want_host_cursor(void);
-
 void
  hostx_use_sw_cursor(void);
-
-xcb_cursor_t
- hostx_get_empty_cursor(void);
 
 void
  hostx_use_fullscreen(void);

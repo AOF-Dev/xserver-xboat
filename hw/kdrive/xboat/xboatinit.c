@@ -264,9 +264,6 @@ OsVendorInit(void)
     if (SeatId)
         hostx_use_sw_cursor();
 
-    if (hostx_want_host_cursor())
-        ephyrFuncs.initCursor = &ephyrCursorInit;
-
     if (serverGeneration == 1) {
         if (!KdCardInfoLast()) {
             processScreenArg("640x480", NULL);
