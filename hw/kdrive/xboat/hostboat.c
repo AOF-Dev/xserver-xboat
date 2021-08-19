@@ -60,12 +60,28 @@
 #include "ephyrlog.h"
 #include "ephyr.h"
 
+typedef struct xboat_visualtype_t {
+    uint8_t        bits_per_rgb_value;
+    uint16_t       colormap_entries;
+    uint32_t       red_mask;
+    uint32_t       green_mask;
+    uint32_t       blue_mask;
+} xboat_visualtype_t;
+
+static xboat_visualtype_t xboat_default_visual = {
+    .bits_per_rgb_value = 8,
+    .colormap_entries = 256,
+    .red_mask = 0x000000ff,
+    .green_mask = 0x0000ff00,
+    .blue_mask = 0x00ff0000,
+};
+
 struct EphyrHostXVars {
     char *server_dpy_name;
     xcb_connection_t *conn;
     int screen;
-    xcb_visualtype_t *visual;
-    Window winroot;
+    xboat_visualtype_t *visual;
+    ANativeWindow* winroot;
     xcb_generic_event_t *saved_event;
     int depth;
     Bool use_sw_cursor;
@@ -208,20 +224,7 @@ hostx_handle_signal(int signum)
 int
 hostx_init(void)
 {
-    uint32_t attrs[2];
-    uint32_t attr_mask = 0;
     int index;
-    xcb_screen_t *xscreen;
-
-    attrs[0] =
-        XCB_EVENT_MASK_BUTTON_PRESS
-        | XCB_EVENT_MASK_BUTTON_RELEASE
-        | XCB_EVENT_MASK_POINTER_MOTION
-        | XCB_EVENT_MASK_KEY_PRESS
-        | XCB_EVENT_MASK_KEY_RELEASE
-        | XCB_EVENT_MASK_EXPOSURE
-        | XCB_EVENT_MASK_STRUCTURE_NOTIFY;
-    attr_mask |= XCB_CW_EVENT_MASK;
 
     EPHYR_DBG("mark");
 #ifdef GLAMOR
@@ -229,15 +232,10 @@ hostx_init(void)
         HostX.conn = ephyr_glamor_connect();
     else
 #endif
-        HostX.conn = xcb_connect(NULL, &HostX.screen);
-    if (!HostX.conn || xcb_connection_has_error(HostX.conn)) {
-        fprintf(stderr, "\nXephyr cannot open host display. Is DISPLAY set?\n");
-        exit(1);
-    }
+        {}
 
-    xscreen = xcb_aux_get_screen(HostX.conn, HostX.screen);
-    HostX.winroot = xscreen->root;
-    HostX.depth = xscreen->root_depth;
+    HostX.winroot = boatGetNativeWindow();
+    HostX.depth = 32; // only support 32bit-RGBA8888
 #ifdef GLAMOR
     if (ephyr_glamor) {
         HostX.visual = ephyr_glamor_get_visual();
@@ -252,36 +250,27 @@ hostx_init(void)
         }
     } else
 #endif
-        HostX.visual = xcb_aux_find_visual_by_id(xscreen,xscreen->root_visual);
+        HostX.visual = &xboat_default_visual;
 
     for (index = 0; index < HostX.n_screens; index++) {
         KdScreenInfo *screen = HostX.screens[index];
         EphyrScrPriv *scrpriv = screen->driver;
 
-        scrpriv->win = xcb_generate_id(HostX.conn);
+        // Xboat: Boat has only one window (root window)
+        //        just use it
+        scrpriv->win = HostBoat.winroot;
         scrpriv->server_depth = HostX.depth;
         scrpriv->ximg = NULL;
         scrpriv->win_x = 0;
         scrpriv->win_y = 0;
 
         {
-            xcb_create_window(HostX.conn,
-                              XCB_COPY_FROM_PARENT,
-                              scrpriv->win,
-                              HostX.winroot,
-                              0,0,100,100, /* will resize */
-                              0,
-                              XCB_WINDOW_CLASS_COPY_FROM_PARENT,
-                              HostX.visual->visual_id,
-                              attr_mask,
-                              attrs);
-
             hostx_set_win_title(screen,
-                                "(ctrl+shift grabs mouse and keyboard)");
+                                "(touch Grab to grab mouse and keyboard)");
 
             if (HostX.use_fullscreen) {
-                scrpriv->win_width  = xscreen->width_in_pixels;
-                scrpriv->win_height = xscreen->height_in_pixels;
+                scrpriv->win_width  = ANativeWindow_getWidth(scrpriv->win);
+                scrpriv->win_height = ANativeWindow_getHeight(scrpriv->win);
             }
         }
     }
@@ -293,14 +282,12 @@ hostx_init(void)
         /* Ditch the cursor, we provide our 'own' */
     }
 
-    xcb_flush(HostX.conn);
-
     /* Setup the pause time between paints when debugging updates */
 
     HostX.damage_debug_msec = 20000;    /* 1/50 th of a second */
 
-    if (getenv("XEPHYR_PAUSE")) {
-        HostX.damage_debug_msec = strtol(getenv("XEPHYR_PAUSE"), NULL, 0);
+    if (getenv("XBOAT_PAUSE")) {
+        HostX.damage_debug_msec = strtol(getenv("XBOAT_PAUSE"), NULL, 0);
         EPHYR_DBG("pause is %li\n", HostX.damage_debug_msec);
     }
 
