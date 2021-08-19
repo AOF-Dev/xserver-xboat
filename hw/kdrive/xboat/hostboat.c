@@ -60,6 +60,42 @@
 #include "ephyrlog.h"
 #include "ephyr.h"
 
+typedef uint32_t pixel32_t;
+
+typedef struct xboat_image_t {
+    // Width in pixels, excluding pads etc.
+    uint16_t           width;
+    // Height in pixels.
+    uint16_t           height;
+    uint8_t            format;
+    // Depth in bits.
+    // 1, 4, 8, 16, 24 for z format.
+    uint8_t            depth;
+    // Storage per pixel in bits.
+    // 1, 4, 8, 16, 24, 32 for z format.
+    uint8_t            bpp;
+    // Component byte order for z-pixmap.
+    uint8_t            byte_order;
+    // Bytes per image row.
+    uint32_t           stride;
+    uint8_t *          data;
+} xboat_image_t;
+
+static xboat_image_t* xboat_image_create(uint16_t width, uint16_t height) {
+    xboat_image_t* image = malloc(sizeof(xboat_image_t));
+    image->width = width;
+    image->height = height;
+    image->format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
+    image->depth = 32;
+    image->bpp = 32;
+    image->stride = width * sizeof(pixel32_t);
+    return image;
+}
+
+void xboat_image_destroy(xboat_image_t *image) {
+    free(image);
+}
+
 typedef struct xboat_visualtype_t {
     uint8_t        bits_per_rgb_value;
     uint16_t       colormap_entries;
@@ -416,21 +452,16 @@ hostx_screen_init(KdScreenInfo *screen,
             free(scrpriv->ximg->data);
             scrpriv->ximg->data = NULL;
 
-            xcb_image_destroy(scrpriv->ximg);
+            xboat_image_destroy(scrpriv->ximg);
         }
     }
 
     if (!ephyr_glamor) {
         EPHYR_DBG("Creating image %dx%d for screen scrpriv=%p\n",
                   width, buffer_height, scrpriv);
-        scrpriv->ximg = xcb_image_create_native(HostX.conn,
-                                                    width,
-                                                    buffer_height,
-                                                    XCB_IMAGE_FORMAT_Z_PIXMAP,
-                                                    HostX.depth,
-                                                    NULL,
-                                                    ~0,
-                                                    NULL);
+        scrpriv->ximg = xboat_image_create(width,
+                                           buffer_height,
+                                           HostX.depth);
 
         /* Match server byte order so that the image can be converted to
          * the native byte order by xcb_image_put() before drawing */
@@ -443,29 +474,20 @@ hostx_screen_init(KdScreenInfo *screen,
 
     if (!HostX.size_set_from_configure)
     {
-        uint32_t mask = XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT;
-        uint32_t values[2] = {width, height};
-        xcb_configure_window(HostX.conn, scrpriv->win, mask, values);
+        // Xboat: Boat does not support resize window from program
+        EPHYR_DBG("WARNING: Window resize request ignored: %s:%d %s\n",
+                  __FILE__, __LINE__, __func__);
     }
 
     if (!EphyrWantResize) {
         /* Ask the WM to keep our size static */
-        xcb_size_hints_t size_hints = {0};
-        size_hints.max_width = size_hints.min_width = width;
-        size_hints.max_height = size_hints.min_height = height;
-        size_hints.flags = (XCB_ICCCM_SIZE_HINT_P_MIN_SIZE |
-                            XCB_ICCCM_SIZE_HINT_P_MAX_SIZE);
-        xcb_icccm_set_wm_normal_hints(HostX.conn, scrpriv->win,
-                                      &size_hints);
+        // Maybe we should disable MultiWindow mode on Android?
     }
 
 #ifdef GLAMOR
     if (!ephyr_glamor_skip_present)
 #endif
-        xcb_map_window(HostX.conn, scrpriv->win);
-
-
-    xcb_aux_sync(HostX.conn);
+        {}
 
     scrpriv->win_width = width;
     scrpriv->win_height = height;

@@ -68,9 +68,9 @@ typedef struct _ephyrScrPriv {
     EphyrFakexaPriv *fakexa;
 
     /* Host X window info */
-    xcb_window_t win;
-    xcb_window_t peer_win;            /* Used for GL; should be at most one */
-    xcb_image_t *ximg;
+    ANativeWindow* win;
+    ANativeWindow* peer_win;            /* Used for GL; should be at most one */
+    struct xboat_image_t *ximg;
     int win_x, win_y;
     int win_width, win_height;
     int server_depth;

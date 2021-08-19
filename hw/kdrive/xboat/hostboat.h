@@ -44,24 +44,6 @@
 typedef struct EphyrHostXVars EphyrHostXVars;
 
 typedef struct {
-    VisualID visualid;
-    int screen;
-    int depth;
-    int class;
-    unsigned long red_mask;
-    unsigned long green_mask;
-    unsigned long blue_mask;
-    int colormap_size;
-    int bits_per_rgb;
-} EphyrHostVisualInfo;
-
-typedef struct {
-    int x, y;
-    int width, height;
-    int visualid;
-} EphyrHostWindowAttributes;
-
-typedef struct {
     int x, y, width, height;
 } EphyrBox;
 
