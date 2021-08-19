@@ -322,6 +322,12 @@ hostx_get_visual_masks(KdScreenInfo *screen,
         *gmsk = HostX.visual->green_mask;
         *bmsk = HostX.visual->blue_mask;
     }
+    else if (scrpriv->server_depth == 32) {
+        /* Assume 32bpp 8888 */
+        *rmsk = 0x000000ff;
+        *gmsk = 0x0000ff00;
+        *bmsk = 0x00ff0000;
+    }
     else if (scrpriv->server_depth == 16) {
         /* Assume 16bpp 565 */
         *rmsk = 0xf800;
