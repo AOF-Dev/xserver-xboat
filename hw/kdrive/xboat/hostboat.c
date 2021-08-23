@@ -92,8 +92,53 @@ static xboat_image_t* xboat_image_create(uint16_t width, uint16_t height) {
     return image;
 }
 
-void xboat_image_destroy(xboat_image_t *image) {
+static void xboat_image_destroy(xboat_image_t *image) {
     free(image);
+}
+
+static void xboat_image_put_pixel(xboat_image_t *image, uint32_t x, uint32_t y, uint32_t pixel) {
+    uint8_t* row = image->data + (y * image->stride);
+    row[x << 2] = pixel;
+    row[(x << 2) + 1] = pixel >> 8;
+    row[(x << 2) + 2] = pixel >> 16;
+    row[(x << 2) + 3] = pixel >> 24;
+}
+
+static void xboat_image_put(xboat_image_t *image, ANativeWindow* window,
+                            uint32_t src_x, uint32_t src_y,
+                            uint32_t dst_x, uint32_t dst_y,
+                            uint32_t width, uint32_t height) {
+    ANativeWindow_Buffer buffer;
+    ANativeWindow_lock(window, &buffer, NULL);
+    uint32_t dst_stride = buffer.stride * sizeof(pixel32_t);
+    uint32_t src_stride = image->stride;
+    uint8_t* dst_line = (uint8_t*)buffer.bits + dst_y * dst_stride;
+    uint8_t* src_line = image->data + src_y * src_stride;
+    uint32_t bytes_per_line = width * sizeof(pixel32_t);
+    dst_line += dst_x * sizeof(pixel32_t);
+    src_line += src_x * sizeof(pixel32_t);
+    for (uint32_t i = 0; i < height; i++) {
+        memcpy(dst_line, src_line, bytes_per_line);
+        dst_line += dst_stride;
+        src_line += src_stride;
+    }
+    ANativeWindow_unlockAndPost(window);
+}
+
+static void xboat_fill_rectangle(uint32_t fill_color, ANativeWindow* window,
+                                 uint32_t x, uint32_t y,
+                                 uint32_t width, uint32_t height) {
+    ANativeWindow_Buffer buffer;
+    ANativeWindow_lock(window, &buffer, NULL);
+    pixel32_t* line = (pixel32_t*)buffer.bits + y * buffer.stride;
+    line += x;
+    for (uint32_t j = 0; j < height; j++) {
+        for (uint32_t i = 0; i < width; i++) {
+            line[i] = (pixel32_t)fill_color;
+        }
+        line += buffer.stride;
+    }
+    ANativeWindow_unlockAndPost(window);
 }
 
 typedef struct xboat_visualtype_t {
@@ -594,14 +639,14 @@ hostx_paint_rect(KdScreenInfo *screen,
 
                     host_pixel = (r << 16) | (g << 8) | (b);
 
-                    xcb_image_put_pixel(scrpriv->ximg, x, y, host_pixel);
+                    xboat_image_put_pixel(scrpriv->ximg, x, y, host_pixel);
                     break;
                 }
                 case 8:
                 {
                     unsigned char pixel =
                         *(unsigned char *) (scrpriv->fb_data + idx);
-                    xcb_image_put_pixel(scrpriv->ximg, x, y,
+                    xboat_image_put_pixel(scrpriv->ximg, x, y,
                                         scrpriv->cmap[pixel]);
                     break;
                 }
@@ -611,17 +656,7 @@ hostx_paint_rect(KdScreenInfo *screen,
             }
     }
 
-    {
-        xcb_image_t *subimg = xcb_image_subimage(scrpriv->ximg, sx, sy,
-                                                 width, height, 0, 0, 0);
-        xcb_image_t *img = xcb_image_native(HostX.conn, subimg, 1);
-        // put subimg to win at dx, dy
-        if (subimg != img)
-            xcb_image_destroy(img);
-        xcb_image_destroy(subimg);
-    }
-
-    xcb_aux_sync(HostX.conn);
+    xboat_image_put(scrpriv->ximg, scrpriv->win, sx, sy, dx, dy, width, height);
 }
 
 static void
@@ -630,7 +665,6 @@ hostx_paint_debug_rect(KdScreenInfo *screen,
 {
     EphyrScrPriv *scrpriv = screen->driver;
     struct timespec tspec;
-    xcb_rectangle_t rect = { .x = x, .y = y, .width = width, .height = height };
 
     tspec.tv_sec = HostX.damage_debug_msec / (1000000);
     tspec.tv_nsec = (HostX.damage_debug_msec % 1000000) * 1000;
@@ -640,7 +674,7 @@ hostx_paint_debug_rect(KdScreenInfo *screen,
 
     /* fprintf(stderr, "Xephyr updating: %i+%i %ix%i\n", x, y, width, height); */
 
-    // fill rect with debug_fill_color
+    xboat_fill_rectangle(debug_fill_color, scrpriv->win, x, y, width, height);
 
     /* nanosleep seems to work better than usleep for me... */
     nanosleep(&tspec, NULL);
@@ -782,12 +816,6 @@ void
 hostx_size_set_from_configure(Bool ss)
 {
     HostX.size_set_from_configure = ss;
-}
-
-xcb_connection_t *
-hostx_get_xcbconn(void)
-{
-    return HostX.conn;
 }
 
 xcb_generic_event_t *

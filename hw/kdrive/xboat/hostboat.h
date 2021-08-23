@@ -110,9 +110,6 @@ hostx_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls);
 void
 hostx_size_set_from_configure(Bool);
 
-xcb_connection_t *
-hostx_get_xcbconn(void);
-
 xcb_generic_event_t *
 hostx_get_event(Bool queued_only);
 
