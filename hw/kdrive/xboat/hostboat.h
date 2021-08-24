@@ -116,11 +116,6 @@ hostx_get_event(Bool queued_only);
 Bool
 hostx_has_queued_event(void);
 
-int
-hostx_get_screen(void);
-
-int hostx_has_extension(xcb_extension_t *extension);
-
 int hostx_get_fd(void);
 
 #endif /*_XLIBS_STUFF_H_*/

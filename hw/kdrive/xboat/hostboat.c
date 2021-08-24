@@ -186,16 +186,6 @@ extern Bool EphyrWantResize;
 Bool ephyr_glamor = FALSE;
 extern Bool ephyr_glamor_skip_present;
 
-Bool
-hostx_has_extension(xcb_extension_t *extension)
-{
-    const xcb_query_extension_reply_t *rep;
-
-    rep = xcb_get_extension_data(HostX.conn, extension);
-
-    return rep && rep->present;
-}
-
 #define host_depth_matches_server(_vars) (HostX.depth == (_vars)->server_depth)
 
 int
@@ -726,14 +716,8 @@ Bool
 hostx_has_queued_event(void)
 {
     if (!HostX.saved_event)
-        HostX.saved_event = xcb_poll_for_queued_event(HostX.conn);
+        HostX.saved_event = NULL; // xcb_poll_for_queued_event(HostX.conn);
     return HostX.saved_event != NULL;
-}
-
-int
-hostx_get_screen(void)
-{
-    return HostX.screen;
 }
 
 int
