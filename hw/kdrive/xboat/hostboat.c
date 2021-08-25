@@ -27,7 +27,7 @@
 #include <dix-config.h>
 #endif
 
-#include "hostx.h"
+#include "hostboat.h"
 #include "input.h"
 
 #include <stdlib.h>
@@ -42,23 +42,14 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 
-#include <X11/keysym.h>
-#include <xcb/xcb.h>
-#include <xcb/xproto.h>
-#include <xcb/xcb_icccm.h>
-#include <xcb/xcb_aux.h>
-#include <xcb/xcb_image.h>
-#include <xcb/shape.h>
-#include <xcb/xcb_keysyms.h>
-#include <xcb/randr.h>
-#include <xcb/xkb.h>
+#include <boat.h>
 #ifdef GLAMOR
 #include <epoxy/gl.h>
 #include "glamor.h"
 #include "ephyr_glamor_glx.h"
 #endif
-#include "ephyrlog.h"
-#include "ephyr.h"
+#include "xboatlog.h"
+#include "xboat.h"
 
 typedef uint32_t pixel32_t;
 
@@ -159,11 +150,9 @@ static xboat_visualtype_t xboat_default_visual = {
 
 struct EphyrHostXVars {
     char *server_dpy_name;
-    xcb_connection_t *conn;
-    int screen;
     xboat_visualtype_t *visual;
     ANativeWindow* winroot;
-    xcb_generic_event_t *saved_event;
+    BoatEvent *saved_event;
     int depth;
     Bool use_sw_cursor;
     Bool use_fullscreen;
@@ -695,19 +684,24 @@ hostx_size_set_from_configure(Bool ss)
     HostX.size_set_from_configure = ss;
 }
 
-xcb_generic_event_t *
+BoatEvent *
 hostx_get_event(Bool queued_only)
 {
-    xcb_generic_event_t *xev;
+    BoatEvent *xev;
 
     if (HostX.saved_event) {
         xev = HostX.saved_event;
         HostX.saved_event = NULL;
     } else {
-        if (queued_only)
-            xev = xcb_poll_for_queued_event(HostX.conn);
-        else
-            xev = xcb_poll_for_event(HostX.conn);
+        if (queued_only) {
+            xev = NULL; // xcb_poll_for_queued_event(HostX.conn);
+        } else {
+            xev = malloc(sizeof(BoatEvent));
+            if (!boatPollEvent(xev)) {
+                free(xev);
+                xev = NULL;
+            }
+        }
     }
     return xev;
 }
@@ -723,7 +717,7 @@ hostx_has_queued_event(void)
 int
 hostx_get_fd(void)
 {
-    return xcb_get_file_descriptor(HostX.conn);
+    return boatGetEventFd();
 }
 
 #ifdef GLAMOR
