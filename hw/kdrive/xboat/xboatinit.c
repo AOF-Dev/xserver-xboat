@@ -26,18 +26,18 @@
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
 #endif
-#include "ephyr.h"
-#include "ephyrlog.h"
+#include "xboat.h"
+#include "xboatlog.h"
 #include "glx_extinit.h"
 
-extern Bool EphyrWantGrayScale;
-extern Bool EphyrWantResize;
-extern Bool EphyrWantNoHostGrab;
+extern Bool XboatWantGrayScale;
+extern Bool XboatWantResize;
+extern Bool XboatWantNoHostGrab;
 extern Bool kdHasPointer;
 extern Bool kdHasKbd;
-extern Bool ephyr_glamor, ephyr_glamor_gles2, ephyr_glamor_skip_present;
+extern Bool xboat_glamor, xboat_glamor_gles2, xboat_glamor_skip_present;
 
-extern Bool ephyrNoXV;
+extern Bool xboatNoXV;
 
 void processScreenArg(const char *screen_size);
 
@@ -50,8 +50,8 @@ main(int argc, char *argv[], char *envp[])
 void
 InitCard(char *name)
 {
-    EPHYR_DBG("mark");
-    KdCardInfoAdd(&ephyrFuncs, 0);
+    XBOAT_DBG("mark");
+    KdCardInfoAdd(&xboatFuncs, 0);
 }
 
 void
@@ -67,22 +67,22 @@ InitInput(int argc, char **argv)
     KdPointerInfo *pi;
 
     if (!SeatId) {
-        KdAddKeyboardDriver(&EphyrKeyboardDriver);
-        KdAddPointerDriver(&EphyrMouseDriver);
+        KdAddKeyboardDriver(&XboatKeyboardDriver);
+        KdAddPointerDriver(&XboatMouseDriver);
 
         if (!kdHasKbd) {
             ki = KdNewKeyboard();
             if (!ki)
-                FatalError("Couldn't create Xephyr keyboard\n");
-            ki->driver = &EphyrKeyboardDriver;
+                FatalError("Couldn't create Xboat keyboard\n");
+            ki->driver = &XboatKeyboardDriver;
             KdAddKeyboard(ki);
         }
 
         if (!kdHasPointer) {
             pi = KdNewPointer();
             if (!pi)
-                FatalError("Couldn't create Xephyr pointer\n");
-            pi->driver = &EphyrMouseDriver;
+                FatalError("Couldn't create Xboat pointer\n");
+            pi->driver = &XboatMouseDriver;
             KdAddPointer(pi);
         }
     }
@@ -121,7 +121,7 @@ ddxUseMsg(void)
     ErrorF("-sw-cursor           Render cursors in software in Xboat\n");
     ErrorF("-fullscreen          Attempt to run Xboat fullscreen\n");
     ErrorF("-grayscale           Simulate 8bit grayscale\n");
-    ErrorF("-resizeable          Make Xephyr windows resizeable\n");
+    ErrorF("-resizeable          Make Xboat windows resizeable\n");
 #ifdef GLAMOR
     ErrorF("-glamor              Enable 2D acceleration using glamor\n");
     ErrorF("-glamor_gles2        Enable 2D acceleration using glamor (with GLES2 only)\n");
@@ -148,11 +148,11 @@ processScreenArg(const char *screen_size)
 
         screen = KdScreenInfoAdd(card);
         KdParseScreen(screen, screen_size);
-        screen->driver = calloc(1, sizeof(EphyrScrPriv));
+        screen->driver = calloc(1, sizeof(XboatScrPriv));
         if (!screen->driver)
             FatalError("Couldn't alloc screen private\n");
 
-        EPHYR_DBG("screen number:%d\n", screen->mynum);
+        XBOAT_DBG("screen number:%d\n", screen->mynum);
         hostx_add_screen(screen, screen->mynum);
     }
     else {
@@ -163,7 +163,7 @@ processScreenArg(const char *screen_size)
 int
 ddxProcessArgument(int argc, char **argv, int i)
 {
-    EPHYR_DBG("mark argv[%d]='%s'", i, argv[i]);
+    XBOAT_DBG("mark argv[%d]='%s'", i, argv[i]);
 
     if (!strcmp(argv[i], "-screen")) {
         if ((i + 1) < argc) {
@@ -183,41 +183,41 @@ ddxProcessArgument(int argc, char **argv, int i)
         return 1;
     }
     else if (!strcmp(argv[i], "-grayscale")) {
-        EphyrWantGrayScale = 1;
+        XboatWantGrayScale = 1;
         return 1;
     }
     else if (!strcmp(argv[i], "-resizeable")) {
-        EphyrWantResize = 1;
+        XboatWantResize = 1;
         return 1;
     }
 #ifdef GLAMOR
     else if (!strcmp (argv[i], "-glamor")) {
-        ephyr_glamor = TRUE;
-        ephyrFuncs.initAccel = ephyr_glamor_init;
-        ephyrFuncs.enableAccel = ephyr_glamor_enable;
-        ephyrFuncs.disableAccel = ephyr_glamor_disable;
-        ephyrFuncs.finiAccel = ephyr_glamor_fini;
+        xboat_glamor = TRUE;
+        xboatFuncs.initAccel = xboat_glamor_init;
+        xboatFuncs.enableAccel = xboat_glamor_enable;
+        xboatFuncs.disableAccel = xboat_glamor_disable;
+        xboatFuncs.finiAccel = xboat_glamor_fini;
         return 1;
     }
     else if (!strcmp (argv[i], "-glamor_gles2")) {
-        ephyr_glamor = TRUE;
-        ephyr_glamor_gles2 = TRUE;
-        ephyrFuncs.initAccel = ephyr_glamor_init;
-        ephyrFuncs.enableAccel = ephyr_glamor_enable;
-        ephyrFuncs.disableAccel = ephyr_glamor_disable;
-        ephyrFuncs.finiAccel = ephyr_glamor_fini;
+        xboat_glamor = TRUE;
+        xboat_glamor_gles2 = TRUE;
+        xboatFuncs.initAccel = xboat_glamor_init;
+        xboatFuncs.enableAccel = xboat_glamor_enable;
+        xboatFuncs.disableAccel = xboat_glamor_disable;
+        xboatFuncs.finiAccel = xboat_glamor_fini;
         return 1;
     }
     else if (!strcmp (argv[i], "-glamor-skip-present")) {
-        ephyr_glamor_skip_present = TRUE;
+        xboat_glamor_skip_present = TRUE;
         return 1;
     }
 #endif
     else if (!strcmp(argv[i], "-fakexa")) {
-        ephyrFuncs.initAccel = ephyrDrawInit;
-        ephyrFuncs.enableAccel = ephyrDrawEnable;
-        ephyrFuncs.disableAccel = ephyrDrawDisable;
-        ephyrFuncs.finiAccel = ephyrDrawFini;
+        xboatFuncs.initAccel = xboatDrawInit;
+        xboatFuncs.enableAccel = xboatDrawEnable;
+        xboatFuncs.disableAccel = xboatDrawDisable;
+        xboatFuncs.finiAccel = xboatDrawFini;
         return 1;
     }
     else if (!strcmp(argv[i], "-verbosity")) {
@@ -225,7 +225,7 @@ ddxProcessArgument(int argc, char **argv, int i)
             int verbosity = atoi(argv[i + 1]);
 
             LogSetParameter(XLOG_VERBOSITY, verbosity);
-            EPHYR_LOG("set verbosiry to %d\n", verbosity);
+            XBOAT_LOG("set verbosiry to %d\n", verbosity);
             return 2;
         }
         else {
@@ -234,15 +234,15 @@ ddxProcessArgument(int argc, char **argv, int i)
         }
     }
     else if (!strcmp(argv[i], "-noxv")) {
-        ephyrNoXV = TRUE;
-        EPHYR_LOG("no XVideo enabled\n");
+        xboatNoXV = TRUE;
+        XBOAT_LOG("no XVideo enabled\n");
         return 1;
     }
     else if (argv[i][0] == ':') {
         hostx_set_display_name(argv[i]);
     }
     else if (!strcmp(argv[i], "-no-host-grab")) {
-        EphyrWantNoHostGrab = 1;
+        XboatWantNoHostGrab = 1;
         return 1;
     }
     else if (!strcmp(argv[i], "-sharevts") ||
@@ -259,7 +259,7 @@ ddxProcessArgument(int argc, char **argv, int i)
 void
 OsVendorInit(void)
 {
-    EPHYR_DBG("mark");
+    XBOAT_DBG("mark");
 
     if (SeatId)
         hostx_use_sw_cursor();
@@ -272,14 +272,14 @@ OsVendorInit(void)
     }
 }
 
-KdCardFuncs ephyrFuncs = {
-    ephyrCardInit,              /* cardinit */
-    ephyrScreenInitialize,      /* scrinit */
-    ephyrInitScreen,            /* initScreen */
-    ephyrFinishInitScreen,      /* finishInitScreen */
-    ephyrCreateResources,       /* createRes */
-    ephyrScreenFini,            /* scrfini */
-    ephyrCardFini,              /* cardfini */
+KdCardFuncs xboatFuncs = {
+    xboatCardInit,              /* cardinit */
+    xboatScreenInitialize,      /* scrinit */
+    xboatInitScreen,            /* initScreen */
+    xboatFinishInitScreen,      /* finishInitScreen */
+    xboatCreateResources,       /* createRes */
+    xboatScreenFini,            /* scrfini */
+    xboatCardFini,              /* cardfini */
 
     0,                          /* initCursor */
 
@@ -288,8 +288,8 @@ KdCardFuncs ephyrFuncs = {
     0,                          /* disableAccel */
     0,                          /* finiAccel */
 
-    ephyrGetColors,             /* getColors */
-    ephyrPutColors,             /* putColors */
+    xboatGetColors,             /* getColors */
+    xboatPutColors,             /* putColors */
 
-    ephyrCloseScreen,           /* closeScreen */
+    xboatCloseScreen,           /* closeScreen */
 };
