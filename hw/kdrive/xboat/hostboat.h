@@ -26,10 +26,6 @@
 #ifndef _XLIBS_STUFF_H_
 #define _XLIBS_STUFF_H_
 
-#include <X11/X.h>
-#include <X11/Xmd.h>
-#include <xcb/xcb.h>
-#include <xcb/render.h>
 #include "ephyr.h"
 
 #define EPHYR_WANT_DEBUG 0
@@ -110,7 +106,7 @@ hostx_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls);
 void
 hostx_size_set_from_configure(Bool);
 
-xcb_generic_event_t *
+BoatEvent *
 hostx_get_event(Bool queued_only);
 
 Bool
