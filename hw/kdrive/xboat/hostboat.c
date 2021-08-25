@@ -46,7 +46,7 @@
 #ifdef GLAMOR
 #include <epoxy/gl.h>
 #include "glamor.h"
-#include "ephyr_glamor_glx.h"
+#include "xboat_glamor_egl.h"
 #endif
 #include "xboatlog.h"
 #include "xboat.h"
@@ -148,7 +148,7 @@ static xboat_visualtype_t xboat_default_visual = {
     .blue_mask = 0x00ff0000,
 };
 
-struct EphyrHostXVars {
+struct XboatHostBoatVars {
     char *server_dpy_name;
     xboat_visualtype_t *visual;
     ANativeWindow* winroot;
@@ -165,24 +165,24 @@ struct EphyrHostXVars {
 };
 
 /* memset ( missing> ) instead of below  */
-/*static EphyrHostXVars HostX = { "?", 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};*/
-static EphyrHostXVars HostX;
+/*static XboatHostBoatVars HostBoat = { "?", 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};*/
+static XboatHostBoatVars HostBoat;
 
-static int HostXWantDamageDebug = 0;
+static int HostBoatWantDamageDebug = 0;
 
-extern Bool EphyrWantResize;
+extern Bool XboatWantResize;
 
-Bool ephyr_glamor = FALSE;
-extern Bool ephyr_glamor_skip_present;
+Bool xboat_glamor = FALSE;
+extern Bool xboat_glamor_skip_present;
 
-#define host_depth_matches_server(_vars) (HostX.depth == (_vars)->server_depth)
+#define host_depth_matches_server(_vars) (HostBoat.depth == (_vars)->server_depth)
 
 int
-hostx_want_screen_geometry(KdScreenInfo *screen, int *width, int *height, int *x, int *y)
+hostboat_want_screen_geometry(KdScreenInfo *screen, int *width, int *height, int *x, int *y)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 
-    if (scrpriv && HostX.use_fullscreen == TRUE) {
+    if (scrpriv && HostBoat.use_fullscreen == TRUE) {
         *x = scrpriv->win_x;
         *y = scrpriv->win_y;
         *width = scrpriv->win_width;
@@ -194,40 +194,40 @@ hostx_want_screen_geometry(KdScreenInfo *screen, int *width, int *height, int *x
 }
 
 void
-hostx_add_screen(KdScreenInfo *screen, int screen_num)
+hostboat_add_screen(KdScreenInfo *screen, int screen_num)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
-    int index = HostX.n_screens;
+    XboatScrPriv *scrpriv = screen->driver;
+    int index = HostBoat.n_screens;
 
-    HostX.n_screens += 1;
-    HostX.screens = reallocarray(HostX.screens,
-                                 HostX.n_screens, sizeof(HostX.screens[0]));
-    HostX.screens[index] = screen;
+    HostBoat.n_screens += 1;
+    HostBoat.screens = reallocarray(HostBoat.screens,
+                                 HostBoat.n_screens, sizeof(HostBoat.screens[0]));
+    HostBoat.screens[index] = screen;
 
     scrpriv->screen = screen;
 }
 
 void
-hostx_set_display_name(char *name)
+hostboat_set_display_name(char *name)
 {
-    HostX.server_dpy_name = strdup(name);
+    HostBoat.server_dpy_name = strdup(name);
 }
 
 void
-hostx_set_screen_number(KdScreenInfo *screen, int number)
+hostboat_set_screen_number(KdScreenInfo *screen, int number)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 
     if (scrpriv) {
         scrpriv->mynum = number;
-        hostx_set_win_title(screen, "");
+        hostboat_set_win_title(screen, "");
     }
 }
 
 void
-hostx_set_win_title(KdScreenInfo *screen, const char *extra_text)
+hostboat_set_win_title(KdScreenInfo *screen, const char *extra_text)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 
     if (!scrpriv)
         return;
@@ -238,7 +238,7 @@ hostx_set_win_title(KdScreenInfo *screen, const char *extra_text)
 
         memset(buf, 0, BUF_LEN + 1);
         snprintf(buf, BUF_LEN, "Xboat on %s.%d %s",
-                 HostX.server_dpy_name ? HostX.server_dpy_name : ":0",
+                 HostBoat.server_dpy_name ? HostBoat.server_dpy_name : ":0",
                  scrpriv->mynum, (extra_text != NULL) ? extra_text : "");
 
         // boatSetTitle(buf);
@@ -246,34 +246,34 @@ hostx_set_win_title(KdScreenInfo *screen, const char *extra_text)
 }
 
 void
-hostx_use_sw_cursor(void)
+hostboat_use_sw_cursor(void)
 {
-    HostX.use_sw_cursor = TRUE;
+    HostBoat.use_sw_cursor = TRUE;
 }
 
 void
-hostx_use_fullscreen(void)
+hostboat_use_fullscreen(void)
 {
-    HostX.use_fullscreen = TRUE;
+    HostBoat.use_fullscreen = TRUE;
 }
 
 int
-hostx_want_fullscreen(void)
+hostboat_want_fullscreen(void)
 {
-    return HostX.use_fullscreen;
+    return HostBoat.use_fullscreen;
 }
 
 static void
-hostx_toggle_damage_debug(void)
+hostboat_toggle_damage_debug(void)
 {
-    HostXWantDamageDebug ^= 1;
+    HostBoatWantDamageDebug ^= 1;
 }
 
 void
-hostx_handle_signal(int signum)
+hostboat_handle_signal(int signum)
 {
-    hostx_toggle_damage_debug();
-    EPHYR_DBG("Signal caught. Damage Debug:%i\n", HostXWantDamageDebug);
+    hostboat_toggle_damage_debug();
+    XBOAT_DBG("Signal caught. Damage Debug:%i\n", HostBoatWantDamageDebug);
 }
 
 #ifdef __SUNPRO_C
@@ -282,60 +282,60 @@ hostx_handle_signal(int signum)
 #endif
 
 int
-hostx_init(void)
+hostboat_init(void)
 {
     int index;
 
-    EPHYR_DBG("mark");
+    XBOAT_DBG("mark");
 #ifdef GLAMOR
-    if (ephyr_glamor)
-        HostX.conn = ephyr_glamor_connect();
+    if (xboat_glamor)
+        HostBoat.conn = xboat_glamor_connect();
     else
 #endif
         {}
 
-    HostX.winroot = boatGetNativeWindow();
-    HostX.depth = 32; // only support 32bit-RGBA8888
+    HostBoat.winroot = boatGetNativeWindow();
+    HostBoat.depth = 32; // only support 32bit-RGBA8888
 #ifdef GLAMOR
-    if (ephyr_glamor) {
-        HostX.visual = ephyr_glamor_get_visual();
-        if (HostX.visual->visual_id != xscreen->root_visual) {
-            attrs[1] = xcb_generate_id(HostX.conn);
+    if (xboat_glamor) {
+        HostBoat.visual = xboat_glamor_get_visual();
+        if (HostBoat.visual->visual_id != xscreen->root_visual) {
+            attrs[1] = xcb_generate_id(HostBoat.conn);
             attr_mask |= XCB_CW_COLORMAP;
-            xcb_create_colormap(HostX.conn,
+            xcb_create_colormap(HostBoat.conn,
                                 XCB_COLORMAP_ALLOC_NONE,
                                 attrs[1],
-                                HostX.winroot,
-                                HostX.visual->visual_id);
+                                HostBoat.winroot,
+                                HostBoat.visual->visual_id);
         }
     } else
 #endif
-        HostX.visual = &xboat_default_visual;
+        HostBoat.visual = &xboat_default_visual;
 
-    for (index = 0; index < HostX.n_screens; index++) {
-        KdScreenInfo *screen = HostX.screens[index];
-        EphyrScrPriv *scrpriv = screen->driver;
+    for (index = 0; index < HostBoat.n_screens; index++) {
+        KdScreenInfo *screen = HostBoat.screens[index];
+        XboatScrPriv *scrpriv = screen->driver;
 
         // Xboat: Boat has only one window (root window)
         //        just use it
         scrpriv->win = HostBoat.winroot;
-        scrpriv->server_depth = HostX.depth;
+        scrpriv->server_depth = HostBoat.depth;
         scrpriv->ximg = NULL;
         scrpriv->win_x = 0;
         scrpriv->win_y = 0;
 
         {
-            hostx_set_win_title(screen,
+            hostboat_set_win_title(screen,
                                 "(touch Grab to grab mouse and keyboard)");
 
-            if (HostX.use_fullscreen) {
+            if (HostBoat.use_fullscreen) {
                 scrpriv->win_width  = ANativeWindow_getWidth(scrpriv->win);
                 scrpriv->win_height = ANativeWindow_getHeight(scrpriv->win);
             }
         }
     }
 
-    HostX.debug_fill_color = 0x000000ff; // red for RGBA8888
+    HostBoat.debug_fill_color = 0x000000ff; // red for RGBA8888
 
     {
         CursorVisible = TRUE;
@@ -344,43 +344,43 @@ hostx_init(void)
 
     /* Setup the pause time between paints when debugging updates */
 
-    HostX.damage_debug_msec = 20000;    /* 1/50 th of a second */
+    HostBoat.damage_debug_msec = 20000;    /* 1/50 th of a second */
 
     if (getenv("XBOAT_PAUSE")) {
-        HostX.damage_debug_msec = strtol(getenv("XBOAT_PAUSE"), NULL, 0);
-        EPHYR_DBG("pause is %li\n", HostX.damage_debug_msec);
+        HostBoat.damage_debug_msec = strtol(getenv("XBOAT_PAUSE"), NULL, 0);
+        XBOAT_DBG("pause is %li\n", HostBoat.damage_debug_msec);
     }
 
     return 1;
 }
 
 int
-hostx_get_depth(void)
+hostboat_get_depth(void)
 {
-    return HostX.depth;
+    return HostBoat.depth;
 }
 
 int
-hostx_get_server_depth(KdScreenInfo *screen)
+hostboat_get_server_depth(KdScreenInfo *screen)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 
     return scrpriv ? scrpriv->server_depth : 0;
 }
 
 void
-hostx_get_visual_masks(KdScreenInfo *screen,
+hostboat_get_visual_masks(KdScreenInfo *screen,
                        CARD32 *rmsk, CARD32 *gmsk, CARD32 *bmsk)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 
     if (!scrpriv)
         return;
 
     if (host_depth_matches_server(scrpriv)) {
-        *rmsk = HostX.visual->red_mask;
-        *gmsk = HostX.visual->green_mask;
-        *bmsk = HostX.visual->blue_mask;
+        *rmsk = HostBoat.visual->red_mask;
+        *gmsk = HostBoat.visual->green_mask;
+        *bmsk = HostBoat.visual->blue_mask;
     }
     else if (scrpriv->server_depth == 32) {
         /* Assume 32bpp 8888 */
@@ -402,7 +402,7 @@ hostx_get_visual_masks(KdScreenInfo *screen,
 }
 
 static int
-hostx_calculate_color_shift(unsigned long mask)
+hostboat_calculate_color_shift(unsigned long mask)
 {
     int shift = 1;
 
@@ -417,12 +417,12 @@ hostx_calculate_color_shift(unsigned long mask)
 }
 
 void
-hostx_set_cmap_entry(ScreenPtr pScreen, unsigned char idx,
+hostboat_set_cmap_entry(ScreenPtr pScreen, unsigned char idx,
                      unsigned char r, unsigned char g, unsigned char b)
 {
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 /* need to calculate the shifts for RGB because server could be BGR. */
 /* XXX Not sure if this is correct for 8 on 16, but this works for 8 on 24.*/
     static int rshift, bshift, gshift = 0;
@@ -430,41 +430,41 @@ hostx_set_cmap_entry(ScreenPtr pScreen, unsigned char idx,
 
     if (first_time) {
         first_time = 0;
-        rshift = hostx_calculate_color_shift(HostX.visual->red_mask);
-        gshift = hostx_calculate_color_shift(HostX.visual->green_mask);
-        bshift = hostx_calculate_color_shift(HostX.visual->blue_mask);
+        rshift = hostboat_calculate_color_shift(HostBoat.visual->red_mask);
+        gshift = hostboat_calculate_color_shift(HostBoat.visual->green_mask);
+        bshift = hostboat_calculate_color_shift(HostBoat.visual->blue_mask);
     }
-    scrpriv->cmap[idx] = ((r << rshift) & HostX.visual->red_mask) |
-        ((g << gshift) & HostX.visual->green_mask) |
-        ((b << bshift) & HostX.visual->blue_mask);
+    scrpriv->cmap[idx] = ((r << rshift) & HostBoat.visual->red_mask) |
+        ((g << gshift) & HostBoat.visual->green_mask) |
+        ((b << bshift) & HostBoat.visual->blue_mask);
 }
 
 /**
- * hostx_screen_init creates the XImage that will contain the front buffer of
- * the ephyr screen, and possibly offscreen memory.
+ * hostboat_screen_init creates the xboat_image that will contain the front buffer of
+ * the xboat screen, and possibly offscreen memory.
  *
  * @param width width of the screen
  * @param height height of the screen
  * @param buffer_height  height of the rectangle to be allocated.
  *
- * hostx_screen_init() creates an XImage, using MIT-SHM if it's available.
+ * hostboat_screen_init() creates an xboat_image.
  * buffer_height can be used to create a larger offscreen buffer, which is used
  * by fakexa for storing offscreen pixmap data.
  */
 void *
-hostx_screen_init(KdScreenInfo *screen,
+hostboat_screen_init(KdScreenInfo *screen,
                   int x, int y,
                   int width, int height, int buffer_height,
                   int *bytes_per_line, int *bits_per_pixel)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 
     if (!scrpriv) {
-        fprintf(stderr, "%s: Error in accessing hostx data\n", __func__);
+        fprintf(stderr, "%s: Error in accessing hostboat data\n", __func__);
         exit(1);
     }
 
-    EPHYR_DBG("host_screen=%p x=%d, y=%d, wxh=%dx%d, buffer_height=%d",
+    XBOAT_DBG("host_screen=%p x=%d, y=%d, wxh=%dx%d, buffer_height=%d",
               screen, x, y, width, height, buffer_height);
 
     if (scrpriv->ximg != NULL) {
@@ -480,12 +480,12 @@ hostx_screen_init(KdScreenInfo *screen,
         }
     }
 
-    if (!ephyr_glamor) {
-        EPHYR_DBG("Creating image %dx%d for screen scrpriv=%p\n",
+    if (!xboat_glamor) {
+        XBOAT_DBG("Creating image %dx%d for screen scrpriv=%p\n",
                   width, buffer_height, scrpriv);
         scrpriv->ximg = xboat_image_create(width,
                                            buffer_height,
-                                           HostX.depth);
+                                           HostBoat.depth);
 
         /* Match server byte order so that the image can be converted to
          * the native byte order by xcb_image_put() before drawing */
@@ -496,20 +496,20 @@ hostx_screen_init(KdScreenInfo *screen,
             xallocarray(scrpriv->ximg->stride, buffer_height);
     }
 
-    if (!HostX.size_set_from_configure)
+    if (!HostBoat.size_set_from_configure)
     {
         // Xboat: Boat does not support resize window from program
-        EPHYR_DBG("WARNING: Window resize request ignored: %s:%d %s\n",
+        XBOAT_DBG("WARNING: Window resize request ignored: %s:%d %s\n",
                   __FILE__, __LINE__, __func__);
     }
 
-    if (!EphyrWantResize) {
+    if (!XboatWantResize) {
         /* Ask the WM to keep our size static */
         // Maybe we should disable MultiWindow mode on Android?
     }
 
 #ifdef GLAMOR
-    if (!ephyr_glamor_skip_present)
+    if (!xboat_glamor_skip_present)
 #endif
         {}
 
@@ -519,9 +519,9 @@ hostx_screen_init(KdScreenInfo *screen,
     scrpriv->win_y = y;
 
 #ifdef GLAMOR
-    if (ephyr_glamor) {
+    if (xboat_glamor) {
         *bytes_per_line = 0;
-        ephyr_glamor_set_window_size(scrpriv->glamor,
+        xboat_glamor_set_window_size(scrpriv->glamor,
                                      scrpriv->win_width, scrpriv->win_height);
         return NULL;
     } else
@@ -530,7 +530,7 @@ hostx_screen_init(KdScreenInfo *screen,
         *bytes_per_line = scrpriv->ximg->stride;
         *bits_per_pixel = scrpriv->ximg->bpp;
 
-        EPHYR_DBG("Host matches server");
+        XBOAT_DBG("Host matches server");
         return scrpriv->ximg->data;
     }
     else {
@@ -540,25 +540,25 @@ hostx_screen_init(KdScreenInfo *screen,
         *bytes_per_line = stride;
         *bits_per_pixel = scrpriv->server_depth;
 
-        EPHYR_DBG("server bpp %i", bytes_per_pixel);
+        XBOAT_DBG("server bpp %i", bytes_per_pixel);
         scrpriv->fb_data = xallocarray (stride, buffer_height);
         return scrpriv->fb_data;
     }
 }
 
-static void hostx_paint_debug_rect(KdScreenInfo *screen,
+static void hostboat_paint_debug_rect(KdScreenInfo *screen,
                                    int x, int y, int width, int height);
 
 void
-hostx_paint_rect(KdScreenInfo *screen,
+hostboat_paint_rect(KdScreenInfo *screen,
                  int sx, int sy, int dx, int dy, int width, int height)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
 
-    EPHYR_DBG("painting in screen %d\n", scrpriv->mynum);
+    XBOAT_DBG("painting in screen %d\n", scrpriv->mynum);
 
 #ifdef GLAMOR
-    if (ephyr_glamor) {
+    if (xboat_glamor) {
         BoxRec box;
         RegionRec region;
 
@@ -568,7 +568,7 @@ hostx_paint_rect(KdScreenInfo *screen,
         box.y2 = dy + height;
 
         RegionInit(&region, &box, 1);
-        ephyr_glamor_damage_redisplay(scrpriv->glamor, &region);
+        xboat_glamor_damage_redisplay(scrpriv->glamor, &region);
         RegionUninit(&region);
         return;
     }
@@ -579,12 +579,12 @@ hostx_paint_rect(KdScreenInfo *screen,
      *  on to the window
      */
 
-    if (HostXWantDamageDebug) {
-        hostx_paint_debug_rect(screen, dx, dy, width, height);
+    if (HostBoatWantDamageDebug) {
+        hostboat_paint_debug_rect(screen, dx, dy, width, height);
     }
 
     /*
-     * If the depth of the ephyr server is less than that of the host,
+     * If the depth of the xboat server is less than that of the host,
      * the kdrive fb does not point to the ximage data but to a buffer
      * ( fb_data ), we shift the various bits from this onto the XImage
      * so they match the host.
@@ -601,7 +601,7 @@ hostx_paint_rect(KdScreenInfo *screen,
         unsigned char r, g, b;
         unsigned long host_pixel;
 
-        EPHYR_DBG("Unmatched host depth scrpriv=%p\n", scrpriv);
+        XBOAT_DBG("Unmatched host depth scrpriv=%p\n", scrpriv);
         for (y = sy; y < sy + height; y++)
             for (x = sx; x < sx + width; x++) {
                 idx = y * stride + x * bytes_per_pixel;
@@ -639,19 +639,19 @@ hostx_paint_rect(KdScreenInfo *screen,
 }
 
 static void
-hostx_paint_debug_rect(KdScreenInfo *screen,
+hostboat_paint_debug_rect(KdScreenInfo *screen,
                        int x, int y, int width, int height)
 {
-    EphyrScrPriv *scrpriv = screen->driver;
+    XboatScrPriv *scrpriv = screen->driver;
     struct timespec tspec;
 
-    tspec.tv_sec = HostX.damage_debug_msec / (1000000);
-    tspec.tv_nsec = (HostX.damage_debug_msec % 1000000) * 1000;
+    tspec.tv_sec = HostBoat.damage_debug_msec / (1000000);
+    tspec.tv_nsec = (HostBoat.damage_debug_msec % 1000000) * 1000;
 
-    EPHYR_DBG("msec: %li tv_sec %li, tv_msec %li",
-              HostX.damage_debug_msec, tspec.tv_sec, tspec.tv_nsec);
+    XBOAT_DBG("msec: %li tv_sec %li, tv_msec %li",
+              HostBoat.damage_debug_msec, tspec.tv_sec, tspec.tv_nsec);
 
-    /* fprintf(stderr, "Xephyr updating: %i+%i %ix%i\n", x, y, width, height); */
+    /* fprintf(stderr, "Xboat updating: %i+%i %ix%i\n", x, y, width, height); */
 
     xboat_fill_rectangle(debug_fill_color, scrpriv->win, x, y, width, height);
 
@@ -660,7 +660,7 @@ hostx_paint_debug_rect(KdScreenInfo *screen,
 }
 
 Bool
-hostx_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls)
+hostboat_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls)
 {
     int min_keycode, max_keycode;
 
@@ -669,7 +669,7 @@ hostx_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls)
     min_keycode = BOAT_MIN_SCANCODE;
     max_keycode = BOAT_MAX_SCANCODE;
 
-    EPHYR_DBG("min: %d, max: %d", min_keycode, max_keycode);
+    XBOAT_DBG("min: %d, max: %d", min_keycode, max_keycode);
 
     keySyms->minKeyCode = min_keycode;
     keySyms->maxKeyCode = max_keycode;
@@ -679,22 +679,22 @@ hostx_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls)
 }
 
 void
-hostx_size_set_from_configure(Bool ss)
+hostboat_size_set_from_configure(Bool ss)
 {
-    HostX.size_set_from_configure = ss;
+    HostBoat.size_set_from_configure = ss;
 }
 
 BoatEvent *
-hostx_get_event(Bool queued_only)
+hostboat_get_event(Bool queued_only)
 {
     BoatEvent *xev;
 
-    if (HostX.saved_event) {
-        xev = HostX.saved_event;
-        HostX.saved_event = NULL;
+    if (HostBoat.saved_event) {
+        xev = HostBoat.saved_event;
+        HostBoat.saved_event = NULL;
     } else {
         if (queued_only) {
-            xev = NULL; // xcb_poll_for_queued_event(HostX.conn);
+            xev = NULL; // xcb_poll_for_queued_event(HostBoat.conn);
         } else {
             xev = malloc(sizeof(BoatEvent));
             if (!boatPollEvent(xev)) {
@@ -707,29 +707,29 @@ hostx_get_event(Bool queued_only)
 }
 
 Bool
-hostx_has_queued_event(void)
+hostboat_has_queued_event(void)
 {
-    if (!HostX.saved_event)
-        HostX.saved_event = NULL; // xcb_poll_for_queued_event(HostX.conn);
-    return HostX.saved_event != NULL;
+    if (!HostBoat.saved_event)
+        HostBoat.saved_event = NULL; // xcb_poll_for_queued_event(HostBoat.conn);
+    return HostBoat.saved_event != NULL;
 }
 
 int
-hostx_get_fd(void)
+hostboat_get_fd(void)
 {
     return boatGetEventFd();
 }
 
 #ifdef GLAMOR
 Bool
-ephyr_glamor_init(ScreenPtr screen)
+xboat_glamor_init(ScreenPtr screen)
 {
     KdScreenPriv(screen);
     KdScreenInfo *kd_screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = kd_screen->driver;
+    XboatScrPriv *scrpriv = kd_screen->driver;
 
-    scrpriv->glamor = ephyr_glamor_glx_screen_init(scrpriv->win);
-    ephyr_glamor_set_window_size(scrpriv->glamor,
+    scrpriv->glamor = xboat_glamor_glx_screen_init(scrpriv->win);
+    xboat_glamor_set_window_size(scrpriv->glamor,
                                  scrpriv->win_width, scrpriv->win_height);
 
     if (!glamor_init(screen, 0)) {
@@ -741,7 +741,7 @@ ephyr_glamor_init(ScreenPtr screen)
 }
 
 static int
-ephyrSetPixmapVisitWindow(WindowPtr window, void *data)
+xboatSetPixmapVisitWindow(WindowPtr window, void *data)
 {
     ScreenPtr screen = window->drawable.pScreen;
 
@@ -753,20 +753,20 @@ ephyrSetPixmapVisitWindow(WindowPtr window, void *data)
 }
 
 Bool
-ephyr_glamor_create_screen_resources(ScreenPtr pScreen)
+xboat_glamor_create_screen_resources(ScreenPtr pScreen)
 {
     KdScreenPriv(pScreen);
     KdScreenInfo *kd_screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = kd_screen->driver;
+    XboatScrPriv *scrpriv = kd_screen->driver;
     PixmapPtr old_screen_pixmap, screen_pixmap;
     uint32_t tex;
 
-    if (!ephyr_glamor)
+    if (!xboat_glamor)
         return TRUE;
 
     /* kdrive's fbSetupScreen() told mi to have
      * miCreateScreenResources() (which is called before this) make a
-     * scratch pixmap wrapping ephyr-glamor's NULL
+     * scratch pixmap wrapping xboat-glamor's NULL
      * KdScreenInfo->fb.framebuffer.
      *
      * We want a real (texture-based) screen pixmap at this point.
@@ -788,37 +788,37 @@ ephyr_glamor_create_screen_resources(ScreenPtr pScreen)
 
     pScreen->SetScreenPixmap(screen_pixmap);
     if (pScreen->root && pScreen->SetWindowPixmap)
-        TraverseTree(pScreen->root, ephyrSetPixmapVisitWindow, old_screen_pixmap);
+        TraverseTree(pScreen->root, xboatSetPixmapVisitWindow, old_screen_pixmap);
 
     /* Tell the GLX code what to GL texture to read from. */
     tex = glamor_get_pixmap_texture(screen_pixmap);
     if (!tex)
         return FALSE;
 
-    ephyr_glamor_set_texture(scrpriv->glamor, tex);
+    xboat_glamor_set_texture(scrpriv->glamor, tex);
 
     return TRUE;
 }
 
 void
-ephyr_glamor_enable(ScreenPtr screen)
+xboat_glamor_enable(ScreenPtr screen)
 {
 }
 
 void
-ephyr_glamor_disable(ScreenPtr screen)
+xboat_glamor_disable(ScreenPtr screen)
 {
 }
 
 void
-ephyr_glamor_fini(ScreenPtr screen)
+xboat_glamor_fini(ScreenPtr screen)
 {
     KdScreenPriv(screen);
     KdScreenInfo *kd_screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = kd_screen->driver;
+    XboatScrPriv *scrpriv = kd_screen->driver;
 
     glamor_fini(screen);
-    ephyr_glamor_glx_screen_fini(scrpriv->glamor);
+    xboat_glamor_glx_screen_fini(scrpriv->glamor);
     scrpriv->glamor = NULL;
 }
 #endif
