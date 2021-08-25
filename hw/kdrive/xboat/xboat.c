@@ -838,7 +838,7 @@ miPointerScreenFuncRec ephyrPointerScreenFuncs = {
 };
 
 static KdScreenInfo *
-screen_from_window(Window w)
+screen_from_window(ANativeWindow* w)
 {
     int i = 0;
 
@@ -858,48 +858,20 @@ screen_from_window(Window w)
 }
 
 static void
-ephyrProcessErrorEvent(xcb_generic_event_t *xev)
+ephyrProcessErrorEvent(BoatEvent *xev)
 {
-    xcb_generic_error_t *e = (xcb_generic_error_t *)xev;
-
-    FatalError("X11 error\n"
-               "Error code: %hhu\n"
-               "Sequence number: %hu\n"
-               "Major code: %hhu\tMinor code: %hu\n"
-               "Error value: %u\n",
-               e->error_code,
-               e->sequence,
-               e->major_code, e->minor_code,
-               e->resource_id);
 }
 
 static void
-ephyrProcessExpose(xcb_generic_event_t *xev)
+ephyrProcessExpose(BoatEvent *xev)
 {
-    xcb_expose_event_t *expose = (xcb_expose_event_t *)xev;
-    KdScreenInfo *screen = screen_from_window(expose->window);
-    EphyrScrPriv *scrpriv = screen->driver;
-
-    /* Wait for the last expose event in a series of cliprects
-     * to actually paint our screen.
-     */
-    if (expose->count != 0)
-        return;
-
-    if (scrpriv) {
-        hostx_paint_rect(scrpriv->screen, 0, 0, 0, 0,
-                         scrpriv->win_width,
-                         scrpriv->win_height);
-    } else {
-        EPHYR_LOG_ERROR("failed to get host screen\n");
-    }
 }
 
 static void
-ephyrProcessMouseMotion(xcb_generic_event_t *xev)
+ephyrProcessMouseMotion(BoatEvent *xev)
 {
-    xcb_motion_notify_event_t *motion = (xcb_motion_notify_event_t *)xev;
-    KdScreenInfo *screen = screen_from_window(motion->event);
+    BoatEvent *motion = xev;
+    KdScreenInfo *screen = screen_from_window(boatGetNativeWindow());
 
     if (!ephyrMouse ||
         !((EphyrPointerPrivate *) ephyrMouse->driverPrivate)->enabled) {
@@ -912,14 +884,14 @@ ephyrProcessMouseMotion(xcb_generic_event_t *xev)
                   "cur_screen:%d, motion_screen:%d\n",
                   ephyrCursorScreen->myNum, screen->pScreen->myNum);
         ephyrWarpCursor(inputInfo.pointer, screen->pScreen,
-                        motion->event_x, motion->event_y);
+                        motion->x, motion->y);
     }
     else {
         int x = 0, y = 0;
 
         EPHYR_LOG("enqueuing mouse motion:%d\n", screen->pScreen->myNum);
-        x = motion->event_x;
-        y = motion->event_y;
+        x = motion->x;
+        y = motion->y;
         EPHYR_LOG("initial (x,y):(%d,%d)\n", x, y);
 
         /* convert coords into desktop-wide coordinates.
@@ -933,13 +905,13 @@ ephyrProcessMouseMotion(xcb_generic_event_t *xev)
 }
 
 static void
-ephyrProcessButtonPress(xcb_generic_event_t *xev)
+ephyrProcessButtonPress(BoatEvent *xev)
 {
-    xcb_button_press_event_t *button = (xcb_button_press_event_t *)xev;
+    BoatEvent *button = xev;
 
     if (!ephyrMouse ||
         !((EphyrPointerPrivate *) ephyrMouse->driverPrivate)->enabled) {
-        EPHYR_LOG("skipping mouse press:%d\n", screen_from_window(button->event)->pScreen->myNum);
+        EPHYR_LOG("skipping mouse press:%d\n", screen_from_window(boatGetNativeWindow())->pScreen->myNum);
         return;
     }
 
@@ -947,16 +919,16 @@ ephyrProcessButtonPress(xcb_generic_event_t *xev)
     /* This is a bit hacky. will break for button 5 ( defined as 0x10 )
      * Check KD_BUTTON defines in kdrive.h
      */
-    mouseState |= 1 << (button->detail - 1);
+    mouseState |= 1 << (button->button - 1);
 
-    EPHYR_LOG("enqueuing mouse press:%d\n", screen_from_window(button->event)->pScreen->myNum);
+    EPHYR_LOG("enqueuing mouse press:%d\n", screen_from_window(boatGetNativeWindow())->pScreen->myNum);
     KdEnqueuePointerEvent(ephyrMouse, mouseState | KD_MOUSE_DELTA, 0, 0, 0);
 }
 
 static void
-ephyrProcessButtonRelease(xcb_generic_event_t *xev)
+ephyrProcessButtonRelease(BoatEvent *xev)
 {
-    xcb_button_press_event_t *button = (xcb_button_press_event_t *)xev;
+    BoatEvent *button = xev;
 
     if (!ephyrMouse ||
         !((EphyrPointerPrivate *) ephyrMouse->driverPrivate)->enabled) {
@@ -964,117 +936,56 @@ ephyrProcessButtonRelease(xcb_generic_event_t *xev)
     }
 
     ephyrUpdateModifierState(button->state);
-    mouseState &= ~(1 << (button->detail - 1));
+    mouseState &= ~(1 << (button->button - 1));
 
-    EPHYR_LOG("enqueuing mouse release:%d\n", screen_from_window(button->event)->pScreen->myNum);
+    EPHYR_LOG("enqueuing mouse release:%d\n", screen_from_window(boatGetNativeWindow())->pScreen->myNum);
     KdEnqueuePointerEvent(ephyrMouse, mouseState | KD_MOUSE_DELTA, 0, 0, 0);
 }
 
-/* Xephyr wants ctrl+shift to grab the window, but that conflicts with
-   ctrl+alt+shift key combos. Remember the modifier state on key presses and
-   releases, if mod1 is pressed, we need ctrl, shift and mod1 released
-   before we allow a shift-ctrl grab activation.
-
-   note: a key event contains the mask _before_ the current key takes
-   effect, so mod1_was_down will be reset on the first key press after all
-   three were released, not on the last release. That'd require some more
-   effort.
+/* Xboat uses KEY_MENU to grab the window,
+   so ephyrUpdateGrabModifierState() seems not useful
  */
-static int
-ephyrUpdateGrabModifierState(int state)
-{
-    static int mod1_was_down = 0;
-
-    if ((state & (XCB_MOD_MASK_CONTROL|XCB_MOD_MASK_SHIFT|XCB_MOD_MASK_1)) == 0)
-        mod1_was_down = 0;
-    else if (state & XCB_MOD_MASK_1)
-        mod1_was_down = 1;
-
-    return mod1_was_down;
-}
 
 static void
-ephyrProcessKeyPress(xcb_generic_event_t *xev)
+ephyrProcessKeyPress(BoatEvent *xev)
 {
-    xcb_key_press_event_t *key = (xcb_key_press_event_t *)xev;
+    BoatEvent *key = xev;
 
     if (!ephyrKbd ||
         !((EphyrKbdPrivate *) ephyrKbd->driverPrivate)->enabled) {
         return;
     }
 
-    ephyrUpdateGrabModifierState(key->state);
     ephyrUpdateModifierState(key->state);
-    KdEnqueueKeyboardEvent(ephyrKbd, key->detail, FALSE);
+    KdEnqueueKeyboardEvent(ephyrKbd, key->keycode, FALSE);
 }
 
 static void
-ephyrProcessKeyRelease(xcb_generic_event_t *xev)
+ephyrProcessKeyRelease(BoatEvent *xev)
 {
-    xcb_connection_t *conn = hostx_get_xcbconn();
-    xcb_key_release_event_t *key = (xcb_key_release_event_t *)xev;
-    static xcb_key_symbols_t *keysyms;
+    BoatEvent *key = xev;
     static int grabbed_screen = -1;
-    int mod1_down = ephyrUpdateGrabModifierState(key->state);
 
-    if (!keysyms)
-        keysyms = xcb_key_symbols_alloc(conn);
-
-    if (!EphyrWantNoHostGrab &&
-        (((xcb_key_symbols_get_keysym(keysyms, key->detail, 0) == XK_Shift_L
-          || xcb_key_symbols_get_keysym(keysyms, key->detail, 0) == XK_Shift_R)
-         && (key->state & XCB_MOD_MASK_CONTROL)) ||
-        ((xcb_key_symbols_get_keysym(keysyms, key->detail, 0) == XK_Control_L
-          || xcb_key_symbols_get_keysym(keysyms, key->detail, 0) == XK_Control_R)
-         && (key->state & XCB_MOD_MASK_SHIFT)))) {
-        KdScreenInfo *screen = screen_from_window(key->event);
+    // xboat: KEY_MENU is hardly ever used,
+    //        so we take it as grab mode trigger
+    if (!EphyrWantNoHostGrab && key->keycode == KEY_MENU) {
+        KdScreenInfo *screen = screen_from_window(boatGetNativeWindow());
         EphyrScrPriv *scrpriv = screen->driver;
 
         if (grabbed_screen != -1) {
-            xcb_ungrab_keyboard(conn, XCB_TIME_CURRENT_TIME);
-            xcb_ungrab_pointer(conn, XCB_TIME_CURRENT_TIME);
+            // ungrabbing keyboard not really supported
+            boatSetCursorMode(CursorEnabled);
             grabbed_screen = -1;
             hostx_set_win_title(screen,
-                                "(ctrl+shift grabs mouse and keyboard)");
+                                "(touch Grab to grab mouse and keyboard)");
         }
-        else if (!mod1_down) {
-            /* Attempt grab */
-            xcb_grab_keyboard_cookie_t kbgrabc =
-                xcb_grab_keyboard(conn,
-                                  TRUE,
-                                  scrpriv->win,
-                                  XCB_TIME_CURRENT_TIME,
-                                  XCB_GRAB_MODE_ASYNC,
-                                  XCB_GRAB_MODE_ASYNC);
-            xcb_grab_keyboard_reply_t *kbgrabr;
-            xcb_grab_pointer_cookie_t pgrabc =
-                xcb_grab_pointer(conn,
-                                 TRUE,
-                                 scrpriv->win,
-                                 0,
-                                 XCB_GRAB_MODE_ASYNC,
-                                 XCB_GRAB_MODE_ASYNC,
-                                 scrpriv->win,
-                                 XCB_NONE,
-                                 XCB_TIME_CURRENT_TIME);
-            xcb_grab_pointer_reply_t *pgrabr;
-            kbgrabr = xcb_grab_keyboard_reply(conn, kbgrabc, NULL);
-            if (!kbgrabr || kbgrabr->status != XCB_GRAB_STATUS_SUCCESS) {
-                xcb_discard_reply(conn, pgrabc.sequence);
-                xcb_ungrab_pointer(conn, XCB_TIME_CURRENT_TIME);
-            } else {
-                pgrabr = xcb_grab_pointer_reply(conn, pgrabc, NULL);
-                if (!pgrabr || pgrabr->status != XCB_GRAB_STATUS_SUCCESS)
-                    {
-                        xcb_ungrab_keyboard(conn,
-                                            XCB_TIME_CURRENT_TIME);
-                    } else {
-                    grabbed_screen = scrpriv->mynum;
-                    hostx_set_win_title
-                        (screen,
-                         "(ctrl+shift releases mouse and keyboard)");
-                }
-            }
+        else {
+            // grabbing keyboard not really supported
+            boatSetCursorMode(CursorDisabled);
+            grabbed_screen = scrpriv->mynum;
+            hostx_set_win_title
+                (screen,
+                 "(touch Grab to release mouse and keyboard)");
         }
     }
 
@@ -1089,15 +1000,14 @@ ephyrProcessKeyRelease(xcb_generic_event_t *xev)
      * together.
      */
     ephyrUpdateModifierState(key->state);
-    KdEnqueueKeyboardEvent(ephyrKbd, key->detail, TRUE);
+    KdEnqueueKeyboardEvent(ephyrKbd, key->keycode, TRUE);
 }
 
 static void
-ephyrProcessConfigureNotify(xcb_generic_event_t *xev)
+ephyrProcessConfigureNotify(BoatEvent *xev)
 {
-    xcb_configure_notify_event_t *configure =
-        (xcb_configure_notify_event_t *)xev;
-    KdScreenInfo *screen = screen_from_window(configure->window);
+    BoatEvent *configure = xev;
+    KdScreenInfo *screen = screen_from_window(boatGetNativeWindow());
     EphyrScrPriv *scrpriv = screen->driver;
 
     if (!scrpriv || !EphyrWantResize) {
@@ -1112,17 +1022,16 @@ ephyrProcessConfigureNotify(xcb_generic_event_t *xev)
 static void
 ephyrXcbProcessEvents(Bool queued_only)
 {
-    xcb_connection_t *conn = hostx_get_xcbconn();
-    xcb_generic_event_t *expose = NULL, *configure = NULL;
+    BoatEvent *configure = NULL;
 
     while (TRUE) {
-        xcb_generic_event_t *xev = hostx_get_event(queued_only);
+        BoatEvent *xev = hostx_get_event(queued_only);
 
         if (!xev) {
-            /* If our XCB connection has died (for example, our window was
+            /* If Boat has error (for example, Boat activity was
              * closed), exit now.
              */
-            if (xcb_connection_has_error(conn)) {
+            if (boatGetErrorCode()) {
                 CloseWellKnownConnections();
                 OsCleanup(1);
                 exit(1);
@@ -1131,38 +1040,32 @@ ephyrXcbProcessEvents(Bool queued_only)
             break;
         }
 
-        switch (xev->response_type & 0x7f) {
-        case 0:
+        switch (xev->type) {
+        case -1:
             ephyrProcessErrorEvent(xev);
             break;
 
-        case XCB_EXPOSE:
-            free(expose);
-            expose = xev;
-            xev = NULL;
-            break;
-
-        case XCB_MOTION_NOTIFY:
+        case MotionNotify:
             ephyrProcessMouseMotion(xev);
             break;
 
-        case XCB_KEY_PRESS:
+        case KeyPress:
             ephyrProcessKeyPress(xev);
             break;
 
-        case XCB_KEY_RELEASE:
+        case KeyRelease:
             ephyrProcessKeyRelease(xev);
             break;
 
-        case XCB_BUTTON_PRESS:
+        case ButtonPress:
             ephyrProcessButtonPress(xev);
             break;
 
-        case XCB_BUTTON_RELEASE:
+        case ButtonRelease:
             ephyrProcessButtonRelease(xev);
             break;
 
-        case XCB_CONFIGURE_NOTIFY:
+        case ConfigureNotify:
             free(configure);
             configure = xev;
             xev = NULL;
@@ -1180,11 +1083,6 @@ ephyrXcbProcessEvents(Bool queued_only)
     if (configure) {
         ephyrProcessConfigureNotify(configure);
         free(configure);
-    }
-
-    if (expose) {
-        ephyrProcessExpose(expose);
-        free(expose);
     }
 }
 
