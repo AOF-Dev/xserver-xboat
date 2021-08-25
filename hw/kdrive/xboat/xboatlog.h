@@ -25,43 +25,43 @@
  * Authors:
  *    Dodji Seketeli <dodji@openedhand.com>
  */
-#ifndef __EPHYRLOG_H__
-#define __EPHYRLOG_H__
+#ifndef __XBOATLOG_H__
+#define __XBOATLOG_H__
 
 #include <assert.h>
 #include "os.h"
 
 #ifndef DEBUG
 /*we are not in debug mode*/
-#define EPHYR_LOG(...)
-#define EPHYR_LOG_ERROR(...)
+#define XBOAT_LOG(...)
+#define XBOAT_LOG_ERROR(...)
 #endif                          /*!DEBUG */
 
 #define ERROR_LOG_LEVEL 3
 #define INFO_LOG_LEVEL 4
 
-#ifndef EPHYR_LOG
-#define EPHYR_LOG(...) \
+#ifndef XBOAT_LOG
+#define XBOAT_LOG(...) \
 LogMessageVerb(X_NOTICE, INFO_LOG_LEVEL, "in %s:%d:%s: ",\
                       __FILE__, __LINE__, __func__) ; \
 LogMessageVerb(X_NOTICE, INFO_LOG_LEVEL, __VA_ARGS__)
 #endif                          /*nomadik_log */
 
-#ifndef EPHYR_LOG_ERROR
-#define EPHYR_LOG_ERROR(...) \
+#ifndef XBOAT_LOG_ERROR
+#define XBOAT_LOG_ERROR(...) \
 LogMessageVerb(X_NOTICE, ERROR_LOG_LEVEL, "Error:in %s:%d:%s: ",\
                       __FILE__, __LINE__, __func__) ; \
 LogMessageVerb(X_NOTICE, ERROR_LOG_LEVEL, __VA_ARGS__)
-#endif                          /*EPHYR_LOG_ERROR */
+#endif                          /*XBOAT_LOG_ERROR */
 
-#ifndef EPHYR_RETURN_IF_FAIL
-#define EPHYR_RETURN_IF_FAIL(cond) \
-if (!(cond)) {EPHYR_LOG_ERROR("condition %s failed\n", #cond);return;}
+#ifndef XBOAT_RETURN_IF_FAIL
+#define XBOAT_RETURN_IF_FAIL(cond) \
+if (!(cond)) {XBOAT_LOG_ERROR("condition %s failed\n", #cond);return;}
 #endif                          /*nomadik_return_if_fail */
 
-#ifndef EPHYR_RETURN_VAL_IF_FAIL
-#define EPHYR_RETURN_VAL_IF_FAIL(cond,val) \
-if (!(cond)) {EPHYR_LOG_ERROR("condition %s failed\n", #cond);return val;}
+#ifndef XBOAT_RETURN_VAL_IF_FAIL
+#define XBOAT_RETURN_VAL_IF_FAIL(cond,val) \
+if (!(cond)) {XBOAT_LOG_ERROR("condition %s failed\n", #cond);return val;}
 #endif                          /*nomadik_return_val_if_fail */
 
-#endif /*__EPHYRLOG_H__*/
+#endif /*__XBOATLOG_H__*/
