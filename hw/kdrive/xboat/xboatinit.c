@@ -153,7 +153,7 @@ processScreenArg(const char *screen_size)
             FatalError("Couldn't alloc screen private\n");
 
         XBOAT_DBG("screen number:%d\n", screen->mynum);
-        hostx_add_screen(screen, screen->mynum);
+        hostboat_add_screen(screen, screen->mynum);
     }
     else {
         ErrorF("No matching card found!\n");
@@ -175,11 +175,11 @@ ddxProcessArgument(int argc, char **argv, int i)
         exit(1);
     }
     else if (!strcmp(argv[i], "-sw-cursor")) {
-        hostx_use_sw_cursor();
+        hostboat_use_sw_cursor();
         return 1;
     }
     else if (!strcmp(argv[i], "-fullscreen")) {
-        hostx_use_fullscreen();
+        hostboat_use_fullscreen();
         return 1;
     }
     else if (!strcmp(argv[i], "-grayscale")) {
@@ -239,7 +239,7 @@ ddxProcessArgument(int argc, char **argv, int i)
         return 1;
     }
     else if (argv[i][0] == ':') {
-        hostx_set_display_name(argv[i]);
+        hostboat_set_display_name(argv[i]);
     }
     else if (!strcmp(argv[i], "-no-host-grab")) {
         XboatWantNoHostGrab = 1;
@@ -262,13 +262,13 @@ OsVendorInit(void)
     XBOAT_DBG("mark");
 
     if (SeatId)
-        hostx_use_sw_cursor();
+        hostboat_use_sw_cursor();
 
     if (serverGeneration == 1) {
         if (!KdCardInfoLast()) {
             processScreenArg("640x480", NULL);
         }
-        hostx_init();
+        hostboat_init();
     }
 }
 

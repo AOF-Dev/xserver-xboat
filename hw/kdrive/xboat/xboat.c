@@ -61,7 +61,7 @@ Bool XboatWantNoHostGrab = 0;
 Bool
 xboatInitialize(KdCardInfo * card, XboatPriv * priv)
 {
-    OsSignal(SIGUSR1, hostx_handle_signal);
+    OsSignal(SIGUSR1, hostboat_handle_signal);
 
     priv->base = 0;
     priv->bytes_per_line = 0;
@@ -94,7 +94,7 @@ xboatScreenInitialize(KdScreenInfo *screen)
     int width = 640, height = 480;
     CARD32 redMask, greenMask, blueMask;
 
-    if (hostx_want_screen_geometry(screen, &width, &height, &x, &y)
+    if (hostboat_want_screen_geometry(screen, &width, &height, &x, &y)
         || !screen->width || !screen->height) {
         screen->width = width;
         screen->height = height;
@@ -105,8 +105,8 @@ xboatScreenInitialize(KdScreenInfo *screen)
     if (XboatWantGrayScale)
         screen->fb.depth = 8;
 
-    if (screen->fb.depth && screen->fb.depth != hostx_get_depth()) {
-        if (screen->fb.depth < hostx_get_depth()
+    if (screen->fb.depth && screen->fb.depth != hostboat_get_depth()) {
+        if (screen->fb.depth < hostboat_get_depth()
             && (screen->fb.depth == 24 || screen->fb.depth == 16
                 || screen->fb.depth == 8)) {
             scrpriv->server_depth = screen->fb.depth;
@@ -116,7 +116,7 @@ xboatScreenInitialize(KdScreenInfo *screen)
                 ("\nXboat: requested screen depth not supported, setting to match hosts.\n");
     }
 
-    screen->fb.depth = hostx_get_server_depth(screen);
+    screen->fb.depth = hostboat_get_server_depth(screen);
     screen->rate = 72;
 
     if (screen->fb.depth <= 8) {
@@ -159,7 +159,7 @@ xboatScreenInitialize(KdScreenInfo *screen)
             return FALSE;
         }
 
-        hostx_get_visual_masks(screen, &redMask, &greenMask, &blueMask);
+        hostboat_get_visual_masks(screen, &redMask, &greenMask, &blueMask);
 
         screen->fb.redMask = (Pixel) redMask;
         screen->fb.greenMask = (Pixel) greenMask;
@@ -224,7 +224,7 @@ xboatMapFramebuffer(KdScreenInfo * screen)
     buffer_height = xboatBufferHeight(screen);
 
     priv->base =
-        hostx_screen_init(screen, screen->x, screen->y,
+        hostboat_screen_init(screen, screen->x, screen->y,
                           screen->width, screen->height, buffer_height,
                           &priv->bytes_per_line, &screen->fb.bitsPerPixel);
 
@@ -295,7 +295,7 @@ xboatShadowUpdate(ScreenPtr pScreen, shadowBufPtr pBuf)
      * pBuf->pDamage  regions
      */
     shadowUpdateRotatePacked(pScreen, pBuf);
-    hostx_paint_rect(screen, 0, 0, 0, 0, screen->width, screen->height);
+    hostboat_paint_rect(screen, 0, 0, 0, 0, screen->width, screen->height);
 }
 
 static void
@@ -322,7 +322,7 @@ xboatInternalDamageRedisplay(ScreenPtr pScreen)
             pbox = RegionRects(pRegion);
 
             while (nbox--) {
-                hostx_paint_rect(screen,
+                hostboat_paint_rect(screen,
                                  pbox->x1, pbox->y1,
                                  pbox->x1, pbox->y1,
                                  pbox->x2 - pbox->x1, pbox->y2 - pbox->y1);
@@ -358,7 +358,7 @@ xboatScreenBlockHandler(ScreenPtr pScreen, void *timeout)
     if (scrpriv->pDamage)
         xboatInternalDamageRedisplay(pScreen);
 
-    if (hostx_has_queued_event()) {
+    if (hostboat_has_queued_event()) {
         if (!QueueWorkProc(xboatEventWorkProc, NULL, NULL))
             FatalError("cannot queue event processing in xboat block handler");
         AdjustWaitForDelay(timeout, 0);
@@ -431,7 +431,7 @@ xboatRandRGetInfo(ScreenPtr pScreen, Rotation * rotations)
 
     *rotations = RR_Rotate_All | RR_Reflect_All;
 
-    if (!hostx_want_fullscreen()) {
+    if (!hostboat_want_fullscreen()) {
         while (sizes[n].width != 0 && sizes[n].height != 0) {
             RRRegisterSize(pScreen,
                            sizes[n].width,
@@ -621,9 +621,9 @@ xboatResizeScreen (ScreenPtr           pScreen,
     size.width = newwidth;
     size.height = newheight;
 
-    hostx_size_set_from_configure(TRUE);
+    hostboat_size_set_from_configure(TRUE);
     ret = xboatRandRSetConfig (pScreen, screen->randr, 0, &size);
-    hostx_size_set_from_configure(FALSE);
+    hostboat_size_set_from_configure(FALSE);
     if (ret) {
         RROutputPtr output;
 
@@ -650,11 +650,11 @@ xboatInitScreen(ScreenPtr pScreen)
     KdScreenInfo *screen = pScreenPriv->screen;
 
     XBOAT_LOG("pScreen->myNum:%d\n", pScreen->myNum);
-    hostx_set_screen_number(screen, pScreen->myNum);
+    hostboat_set_screen_number(screen, pScreen->myNum);
     if (XboatWantNoHostGrab) {
-        hostx_set_win_title(screen, "xboat");
+        hostboat_set_win_title(screen, "xboat");
     } else {
-        hostx_set_win_title(screen, "(ctrl+shift grabs mouse and keyboard)");
+        hostboat_set_win_title(screen, "(ctrl+shift grabs mouse and keyboard)");
     }
     pScreen->CreateColormap = xboatCreateColormap;
 
@@ -973,14 +973,14 @@ xboatProcessKeyRelease(BoatEvent *xev)
             // ungrabbing keyboard not really supported
             boatSetCursorMode(CursorEnabled);
             grabbed_screen = -1;
-            hostx_set_win_title(screen,
+            hostboat_set_win_title(screen,
                                 "(touch Grab to grab mouse and keyboard)");
         }
         else {
             // grabbing keyboard not really supported
             boatSetCursorMode(CursorDisabled);
             grabbed_screen = scrpriv->mynum;
-            hostx_set_win_title
+            hostboat_set_win_title
                 (screen,
                  "(touch Grab to release mouse and keyboard)");
         }
@@ -1022,7 +1022,7 @@ xboatBoatProcessEvents(Bool queued_only)
     BoatEvent *configure = NULL;
 
     while (TRUE) {
-        BoatEvent *xev = hostx_get_event(queued_only);
+        BoatEvent *xev = hostboat_get_event(queued_only);
 
         if (!xev) {
             /* If Boat has error (for example, Boat activity was
@@ -1133,7 +1133,7 @@ xboatPutColors(ScreenPtr pScreen, int n, xColorItem * pdefs)
         if (p > max)
             max = p;
 
-        hostx_set_cmap_entry(pScreen, p,
+        hostboat_set_cmap_entry(pScreen, p,
                              pdefs->red >> 8,
                              pdefs->green >> 8, pdefs->blue >> 8);
         pdefs++;
@@ -1180,7 +1180,7 @@ static Status
 MouseEnable(KdPointerInfo * pi)
 {
     ((XboatPointerPrivate *) pi->driverPrivate)->enabled = TRUE;
-    SetNotifyFd(hostx_get_fd(), xboatBoatNotify, X_NOTIFY_READ, NULL);
+    SetNotifyFd(hostboat_get_fd(), xboatBoatNotify, X_NOTIFY_READ, NULL);
     return Success;
 }
 
@@ -1188,7 +1188,7 @@ static void
 MouseDisable(KdPointerInfo * pi)
 {
     ((XboatPointerPrivate *) pi->driverPrivate)->enabled = FALSE;
-    RemoveNotifyFd(hostx_get_fd());
+    RemoveNotifyFd(hostboat_get_fd());
     return;
 }
 
@@ -1221,7 +1221,7 @@ XboatKeyboardInit(KdKeyboardInfo * ki)
     ki->driverPrivate = (XboatKbdPrivate *)
         calloc(sizeof(XboatKbdPrivate), 1);
 
-    if (hostx_load_keymap(&keySyms, modmap, &controls)) {
+    if (hostboat_load_keymap(&keySyms, modmap, &controls)) {
         XkbApplyMappingChange(ki->dixdev, &keySyms,
                               keySyms.minKeyCode,
                               keySyms.maxKeyCode - keySyms.minKeyCode + 1,
