@@ -23,95 +23,95 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef _XLIBS_STUFF_H_
-#define _XLIBS_STUFF_H_
+#ifndef _BOAT_STUFF_H_
+#define _BOAT_STUFF_H_
 
-#include "ephyr.h"
+#include "xboat.h"
 
-#define EPHYR_WANT_DEBUG 0
+#define XBOAT_WANT_DEBUG 0
 
-#if (EPHYR_WANT_DEBUG)
-#define EPHYR_DBG(x, a...) \
+#if (XBOAT_WANT_DEBUG)
+#define XBOAT_DBG(x, a...) \
  fprintf(stderr, __FILE__ ":%d,%s() " x "\n", __LINE__, __func__, ##a)
 #else
-#define EPHYR_DBG(x, a...) do {} while (0)
+#define XBOAT_DBG(x, a...) do {} while (0)
 #endif
 
-typedef struct EphyrHostXVars EphyrHostXVars;
+typedef struct XboatHostXVars XboatHostXVars;
 
 typedef struct {
     int x, y, width, height;
-} EphyrBox;
+} XboatBox;
 
 typedef struct {
     short x1, y1, x2, y2;
-} EphyrRect;
+} XboatRect;
 
 int
-hostx_want_screen_geometry(KdScreenInfo *screen, int *width, int *height, int *x, int *y);
+hostboat_want_screen_geometry(KdScreenInfo *screen, int *width, int *height, int *x, int *y);
 
 void
- hostx_use_sw_cursor(void);
+ hostboat_use_sw_cursor(void);
 
 void
- hostx_use_fullscreen(void);
+ hostboat_use_fullscreen(void);
 
 int
- hostx_want_fullscreen(void);
+ hostboat_want_fullscreen(void);
 
 void
- hostx_handle_signal(int signum);
+ hostboat_handle_signal(int signum);
 
 int
- hostx_init(void);
+ hostboat_init(void);
 
 void
-hostx_add_screen(KdScreenInfo *screen, int screen_num);
+hostboat_add_screen(KdScreenInfo *screen, int screen_num);
 
 void
- hostx_set_display_name(char *name);
+ hostboat_set_display_name(char *name);
 
 void
-hostx_set_screen_number(KdScreenInfo *screen, int number);
+hostboat_set_screen_number(KdScreenInfo *screen, int number);
 
 void
-hostx_set_win_title(KdScreenInfo *screen, const char *extra_text);
+hostboat_set_win_title(KdScreenInfo *screen, const char *extra_text);
 
 int
- hostx_get_depth(void);
+ hostboat_get_depth(void);
 
 int
-hostx_get_server_depth(KdScreenInfo *screen);
+hostboat_get_server_depth(KdScreenInfo *screen);
 
 void
-hostx_get_visual_masks(KdScreenInfo *screen,
+hostboat_get_visual_masks(KdScreenInfo *screen,
                        CARD32 *rmsk, CARD32 *gmsk, CARD32 *bmsk);
 void
 
-hostx_set_cmap_entry(ScreenPtr pScreen, unsigned char idx,
+hostboat_set_cmap_entry(ScreenPtr pScreen, unsigned char idx,
                      unsigned char r, unsigned char g, unsigned char b);
 
-void *hostx_screen_init(KdScreenInfo *screen,
+void *hostboat_screen_init(KdScreenInfo *screen,
                         int x, int y,
                         int width, int height, int buffer_height,
                         int *bytes_per_line, int *bits_per_pixel);
 
 void
-hostx_paint_rect(KdScreenInfo *screen,
+hostboat_paint_rect(KdScreenInfo *screen,
                  int sx, int sy, int dx, int dy, int width, int height);
 
 Bool
-hostx_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls);
+hostboat_load_keymap(KeySymsPtr keySyms, CARD8 *modmap, XkbControlsPtr controls);
 
 void
-hostx_size_set_from_configure(Bool);
+hostboat_size_set_from_configure(Bool);
 
 BoatEvent *
-hostx_get_event(Bool queued_only);
+hostboat_get_event(Bool queued_only);
 
 Bool
-hostx_has_queued_event(void);
+hostboat_has_queued_event(void);
 
-int hostx_get_fd(void);
+int hostboat_get_fd(void);
 
 #endif /*_XLIBS_STUFF_H_*/
