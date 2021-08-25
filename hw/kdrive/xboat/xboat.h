@@ -23,16 +23,15 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifndef _EPHYR_H_
-#define _EPHYR_H_
+#ifndef _XBOAT_H_
+#define _XBOAT_H_
 #include <stdio.h>
 #include <unistd.h>
 #include <libgen.h>
-#include <xcb/xcb_image.h>
 
 #include "os.h"                 /* for OsSignal() */
 #include "kdrive.h"
-#include "hostx.h"
+#include "hostboat.h"
 #include "exa.h"
 
 #ifdef RANDR
@@ -41,12 +40,12 @@
 
 #include "damage.h"
 
-typedef struct _ephyrPriv {
+typedef struct _xboatPriv {
     CARD8 *base;
     int bytes_per_line;
-} EphyrPriv;
+} XboatPriv;
 
-typedef struct _ephyrFakexaPriv {
+typedef struct _xboatFakexaPriv {
     ExaDriverPtr exa;
     Bool is_synced;
 
@@ -58,14 +57,14 @@ typedef struct _ephyrFakexaPriv {
     void *saved_ptrs[3];
     PixmapPtr pDst, pSrc, pMask;
     GCPtr pGC;
-} EphyrFakexaPriv;
+} XboatFakexaPriv;
 
-typedef struct _ephyrScrPriv {
-    /* ephyr server info */
+typedef struct _xboatScrPriv {
+    /* xboat server info */
     Rotation randr;
     Bool shadow;
     DamagePtr pDamage;
-    EphyrFakexaPriv *fakexa;
+    XboatFakexaPriv *fakexa;
 
     /* Host X window info */
     ANativeWindow* win;
@@ -83,145 +82,145 @@ typedef struct _ephyrScrPriv {
     ScreenBlockHandlerProcPtr   BlockHandler;
 
     /**
-     * Per-screen Xlib-using state for glamor (private to
-     * ephyr_glamor_glx.c)
+     * Per-screen EGL-using state for glamor (private to
+     * xboat_glamor_egl.c)
      */
-    struct ephyr_glamor *glamor;
-} EphyrScrPriv;
+    struct xboat_glamor *glamor;
+} XboatScrPriv;
 
-extern KdCardFuncs ephyrFuncs;
-extern KdKeyboardInfo *ephyrKbd;
-extern KdPointerInfo *ephyrMouse;
+extern KdCardFuncs xboatFuncs;
+extern KdKeyboardInfo *xboatKbd;
+extern KdPointerInfo *xboatMouse;
 
-extern miPointerScreenFuncRec ephyrPointerScreenFuncs;
-
-Bool
- ephyrInitialize(KdCardInfo * card, EphyrPriv * priv);
+extern miPointerScreenFuncRec xboatPointerScreenFuncs;
 
 Bool
- ephyrCardInit(KdCardInfo * card);
+ xboatInitialize(KdCardInfo * card, XboatPriv * priv);
 
 Bool
-ephyrScreenInitialize(KdScreenInfo *screen);
+ xboatCardInit(KdCardInfo * card);
 
 Bool
- ephyrInitScreen(ScreenPtr pScreen);
+xboatScreenInitialize(KdScreenInfo *screen);
 
 Bool
- ephyrFinishInitScreen(ScreenPtr pScreen);
+ xboatInitScreen(ScreenPtr pScreen);
 
 Bool
- ephyrCreateResources(ScreenPtr pScreen);
+ xboatFinishInitScreen(ScreenPtr pScreen);
+
+Bool
+ xboatCreateResources(ScreenPtr pScreen);
 
 void
- ephyrPreserve(KdCardInfo * card);
+ xboatPreserve(KdCardInfo * card);
 
 Bool
- ephyrEnable(ScreenPtr pScreen);
+ xboatEnable(ScreenPtr pScreen);
 
 Bool
- ephyrDPMS(ScreenPtr pScreen, int mode);
+ xboatDPMS(ScreenPtr pScreen, int mode);
 
 void
- ephyrDisable(ScreenPtr pScreen);
+ xboatDisable(ScreenPtr pScreen);
 
 void
- ephyrRestore(KdCardInfo * card);
+ xboatRestore(KdCardInfo * card);
 
 void
- ephyrScreenFini(KdScreenInfo * screen);
+ xboatScreenFini(KdScreenInfo * screen);
 
 void
-ephyrCloseScreen(ScreenPtr pScreen);
+xboatCloseScreen(ScreenPtr pScreen);
 
 void
- ephyrCardFini(KdCardInfo * card);
+ xboatCardFini(KdCardInfo * card);
 
 void
- ephyrGetColors(ScreenPtr pScreen, int n, xColorItem * pdefs);
+ xboatGetColors(ScreenPtr pScreen, int n, xColorItem * pdefs);
 
 void
- ephyrPutColors(ScreenPtr pScreen, int n, xColorItem * pdefs);
+ xboatPutColors(ScreenPtr pScreen, int n, xColorItem * pdefs);
 
 Bool
- ephyrMapFramebuffer(KdScreenInfo * screen);
+ xboatMapFramebuffer(KdScreenInfo * screen);
 
-void *ephyrWindowLinear(ScreenPtr pScreen,
+void *xboatWindowLinear(ScreenPtr pScreen,
                         CARD32 row,
                         CARD32 offset, int mode, CARD32 *size, void *closure);
 
 void
- ephyrSetScreenSizes(ScreenPtr pScreen);
+ xboatSetScreenSizes(ScreenPtr pScreen);
 
 Bool
- ephyrUnmapFramebuffer(KdScreenInfo * screen);
+ xboatUnmapFramebuffer(KdScreenInfo * screen);
 
 void
- ephyrUnsetInternalDamage(ScreenPtr pScreen);
+ xboatUnsetInternalDamage(ScreenPtr pScreen);
 
 Bool
- ephyrSetInternalDamage(ScreenPtr pScreen);
+ xboatSetInternalDamage(ScreenPtr pScreen);
 
 Bool
- ephyrCreateColormap(ColormapPtr pmap);
+ xboatCreateColormap(ColormapPtr pmap);
 
 #ifdef RANDR
 Bool
- ephyrRandRGetInfo(ScreenPtr pScreen, Rotation * rotations);
+ xboatRandRGetInfo(ScreenPtr pScreen, Rotation * rotations);
 
 Bool
 
-ephyrRandRSetConfig(ScreenPtr pScreen,
+xboatRandRSetConfig(ScreenPtr pScreen,
                     Rotation randr, int rate, RRScreenSizePtr pSize);
 Bool
- ephyrRandRInit(ScreenPtr pScreen);
+ xboatRandRInit(ScreenPtr pScreen);
 
 void
- ephyrShadowUpdate(ScreenPtr pScreen, shadowBufPtr pBuf);
+ xboatShadowUpdate(ScreenPtr pScreen, shadowBufPtr pBuf);
 
 #endif
 
 void
- ephyrUpdateModifierState(unsigned int state);
+ xboatUpdateModifierState(unsigned int state);
 
-extern KdPointerDriver EphyrMouseDriver;
+extern KdPointerDriver XboatMouseDriver;
 
-extern KdKeyboardDriver EphyrKeyboardDriver;
+extern KdKeyboardDriver XboatKeyboardDriver;
 
-extern int ephyrBufferHeight(KdScreenInfo * screen);
+extern int xboatBufferHeight(KdScreenInfo * screen);
 
-/* ephyr_draw.c */
+/* xboat_draw.c */
 
 Bool
- ephyrDrawInit(ScreenPtr pScreen);
+ xboatDrawInit(ScreenPtr pScreen);
 
 void
- ephyrDrawEnable(ScreenPtr pScreen);
+ xboatDrawEnable(ScreenPtr pScreen);
 
 void
- ephyrDrawDisable(ScreenPtr pScreen);
+ xboatDrawDisable(ScreenPtr pScreen);
 
 void
- ephyrDrawFini(ScreenPtr pScreen);
+ xboatDrawFini(ScreenPtr pScreen);
 
-/* hostx.c glamor support */
-Bool ephyr_glamor_init(ScreenPtr pScreen);
-Bool ephyr_glamor_create_screen_resources(ScreenPtr pScreen);
-void ephyr_glamor_enable(ScreenPtr pScreen);
-void ephyr_glamor_disable(ScreenPtr pScreen);
-void ephyr_glamor_fini(ScreenPtr pScreen);
-void ephyr_glamor_host_paint_rect(ScreenPtr pScreen);
+/* hostboat.c glamor support */
+Bool xboat_glamor_init(ScreenPtr pScreen);
+Bool xboat_glamor_create_screen_resources(ScreenPtr pScreen);
+void xboat_glamor_enable(ScreenPtr pScreen);
+void xboat_glamor_disable(ScreenPtr pScreen);
+void xboat_glamor_fini(ScreenPtr pScreen);
+void xboat_glamor_host_paint_rect(ScreenPtr pScreen);
 
 /*ephyvideo.c*/
 
-Bool ephyrInitVideo(ScreenPtr pScreen);
+Bool xboatInitVideo(ScreenPtr pScreen);
 
-/* ephyr_glamor_xv.c */
+/* xboat_glamor_xv.c */
 #ifdef GLAMOR
-void ephyr_glamor_xv_init(ScreenPtr screen);
+void xboat_glamor_xv_init(ScreenPtr screen);
 #else /* !GLAMOR */
 static inline void
-ephyr_glamor_xv_init(ScreenPtr screen)
+xboat_glamor_xv_init(ScreenPtr screen)
 {
 }
 #endif /* !GLAMOR */
