@@ -29,36 +29,36 @@
 #include <dix-config.h>
 #endif
 
-#include "ephyr.h"
+#include "xboat.h"
 #include "exa_priv.h"
 #include "fbpict.h"
 
-#define EPHYR_TRACE_DRAW 0
+#define XBOAT_TRACE_DRAW 0
 
-#if EPHYR_TRACE_DRAW
+#if XBOAT_TRACE_DRAW
 #define TRACE_DRAW() ErrorF("%s\n", __FUNCTION__);
 #else
 #define TRACE_DRAW() do { } while (0)
 #endif
 
 /* Use some oddball alignments, to expose issues in alignment handling in EXA. */
-#define EPHYR_OFFSET_ALIGN	24
-#define EPHYR_PITCH_ALIGN	24
+#define XBOAT_OFFSET_ALIGN	24
+#define XBOAT_PITCH_ALIGN	24
 
-#define EPHYR_OFFSCREEN_SIZE	(16 * 1024 * 1024)
-#define EPHYR_OFFSCREEN_BASE	(1 * 1024 * 1024)
+#define XBOAT_OFFSCREEN_SIZE	(16 * 1024 * 1024)
+#define XBOAT_OFFSCREEN_BASE	(1 * 1024 * 1024)
 
 /**
  * Forces a real devPrivate.ptr for hidden pixmaps, so that we can call down to
  * fb functions.
  */
 static void
-ephyrPreparePipelinedAccess(PixmapPtr pPix, int index)
+xboatPreparePipelinedAccess(PixmapPtr pPix, int index)
 {
     KdScreenPriv(pPix->drawable.pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     assert(fakexa->saved_ptrs[index] == NULL);
     fakexa->saved_ptrs[index] = pPix->devPrivate.ptr;
@@ -74,12 +74,12 @@ ephyrPreparePipelinedAccess(PixmapPtr pPix, int index)
  * it.
  */
 static void
-ephyrFinishPipelinedAccess(PixmapPtr pPix, int index)
+xboatFinishPipelinedAccess(PixmapPtr pPix, int index)
 {
     KdScreenPriv(pPix->drawable.pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     pPix->devPrivate.ptr = fakexa->saved_ptrs[index];
     fakexa->saved_ptrs[index] = NULL;
@@ -87,20 +87,20 @@ ephyrFinishPipelinedAccess(PixmapPtr pPix, int index)
 
 /**
  * Sets up a scratch GC for fbFill, and saves other parameters for the
- * ephyrSolid implementation.
+ * xboatSolid implementation.
  */
 static Bool
-ephyrPrepareSolid(PixmapPtr pPix, int alu, Pixel pm, Pixel fg)
+xboatPrepareSolid(PixmapPtr pPix, int alu, Pixel pm, Pixel fg)
 {
     ScreenPtr pScreen = pPix->drawable.pScreen;
 
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
     ChangeGCVal tmpval[3];
 
-    ephyrPreparePipelinedAccess(pPix, EXA_PREPARE_DEST);
+    xboatPreparePipelinedAccess(pPix, EXA_PREPARE_DEST);
 
     fakexa->pDst = pPix;
     fakexa->pGC = GetScratchGC(pPix->drawable.depth, pScreen);
@@ -122,54 +122,54 @@ ephyrPrepareSolid(PixmapPtr pPix, int alu, Pixel pm, Pixel fg)
  * Does an fbFill of the rectangle to be drawn.
  */
 static void
-ephyrSolid(PixmapPtr pPix, int x1, int y1, int x2, int y2)
+xboatSolid(PixmapPtr pPix, int x1, int y1, int x2, int y2)
 {
     ScreenPtr pScreen = pPix->drawable.pScreen;
 
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     fbFill(&fakexa->pDst->drawable, fakexa->pGC, x1, y1, x2 - x1, y2 - y1);
 }
 
 /**
- * Cleans up the scratch GC created in ephyrPrepareSolid.
+ * Cleans up the scratch GC created in xboatPrepareSolid.
  */
 static void
-ephyrDoneSolid(PixmapPtr pPix)
+xboatDoneSolid(PixmapPtr pPix)
 {
     ScreenPtr pScreen = pPix->drawable.pScreen;
 
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     FreeScratchGC(fakexa->pGC);
 
-    ephyrFinishPipelinedAccess(pPix, EXA_PREPARE_DEST);
+    xboatFinishPipelinedAccess(pPix, EXA_PREPARE_DEST);
 }
 
 /**
  * Sets up a scratch GC for fbCopyArea, and saves other parameters for the
- * ephyrCopy implementation.
+ * xboatCopy implementation.
  */
 static Bool
-ephyrPrepareCopy(PixmapPtr pSrc, PixmapPtr pDst, int dx, int dy, int alu,
+xboatPrepareCopy(PixmapPtr pSrc, PixmapPtr pDst, int dx, int dy, int alu,
                  Pixel pm)
 {
     ScreenPtr pScreen = pDst->drawable.pScreen;
 
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
     ChangeGCVal tmpval[2];
 
-    ephyrPreparePipelinedAccess(pDst, EXA_PREPARE_DEST);
-    ephyrPreparePipelinedAccess(pSrc, EXA_PREPARE_SRC);
+    xboatPreparePipelinedAccess(pDst, EXA_PREPARE_DEST);
+    xboatPreparePipelinedAccess(pSrc, EXA_PREPARE_SRC);
 
     fakexa->pSrc = pSrc;
     fakexa->pDst = pDst;
@@ -190,36 +190,36 @@ ephyrPrepareCopy(PixmapPtr pSrc, PixmapPtr pDst, int dx, int dy, int alu,
  * Does an fbCopyArea to take care of the requested copy.
  */
 static void
-ephyrCopy(PixmapPtr pDst, int srcX, int srcY, int dstX, int dstY, int w, int h)
+xboatCopy(PixmapPtr pDst, int srcX, int srcY, int dstX, int dstY, int w, int h)
 {
     ScreenPtr pScreen = pDst->drawable.pScreen;
 
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     fbCopyArea(&fakexa->pSrc->drawable, &fakexa->pDst->drawable, fakexa->pGC,
                srcX, srcY, w, h, dstX, dstY);
 }
 
 /**
- * Cleans up the scratch GC created in ephyrPrepareCopy.
+ * Cleans up the scratch GC created in xboatPrepareCopy.
  */
 static void
-ephyrDoneCopy(PixmapPtr pDst)
+xboatDoneCopy(PixmapPtr pDst)
 {
     ScreenPtr pScreen = pDst->drawable.pScreen;
 
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     FreeScratchGC(fakexa->pGC);
 
-    ephyrFinishPipelinedAccess(fakexa->pSrc, EXA_PREPARE_SRC);
-    ephyrFinishPipelinedAccess(fakexa->pDst, EXA_PREPARE_DEST);
+    xboatFinishPipelinedAccess(fakexa->pSrc, EXA_PREPARE_SRC);
+    xboatFinishPipelinedAccess(fakexa->pDst, EXA_PREPARE_DEST);
 }
 
 /**
@@ -228,7 +228,7 @@ ephyrDoneCopy(PixmapPtr pDst)
  * be useful, too.
  */
 static Bool
-ephyrCheckComposite(int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture,
+xboatCheckComposite(int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture,
                     PicturePtr pDstPicture)
 {
     /* Exercise the component alpha helper, so fail on this case like a normal
@@ -241,23 +241,23 @@ ephyrCheckComposite(int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture,
 }
 
 /**
- * Saves off the parameters for ephyrComposite.
+ * Saves off the parameters for xboatComposite.
  */
 static Bool
-ephyrPrepareComposite(int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture,
+xboatPrepareComposite(int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture,
                       PicturePtr pDstPicture, PixmapPtr pSrc, PixmapPtr pMask,
                       PixmapPtr pDst)
 {
     KdScreenPriv(pDst->drawable.pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
-    ephyrPreparePipelinedAccess(pDst, EXA_PREPARE_DEST);
+    xboatPreparePipelinedAccess(pDst, EXA_PREPARE_DEST);
     if (pSrc != NULL)
-        ephyrPreparePipelinedAccess(pSrc, EXA_PREPARE_SRC);
+        xboatPreparePipelinedAccess(pSrc, EXA_PREPARE_SRC);
     if (pMask != NULL)
-        ephyrPreparePipelinedAccess(pMask, EXA_PREPARE_MASK);
+        xboatPreparePipelinedAccess(pMask, EXA_PREPARE_MASK);
 
     fakexa->op = op;
     fakexa->pSrcPicture = pSrcPicture;
@@ -276,13 +276,13 @@ ephyrPrepareComposite(int op, PicturePtr pSrcPicture, PicturePtr pMaskPicture,
  * Does an fbComposite to complete the requested drawing operation.
  */
 static void
-ephyrComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
+xboatComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
                int dstX, int dstY, int w, int h)
 {
     KdScreenPriv(pDst->drawable.pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     fbComposite(fakexa->op, fakexa->pSrcPicture, fakexa->pMaskPicture,
                 fakexa->pDstPicture, srcX, srcY, maskX, maskY, dstX, dstY,
@@ -290,38 +290,38 @@ ephyrComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
 }
 
 static void
-ephyrDoneComposite(PixmapPtr pDst)
+xboatDoneComposite(PixmapPtr pDst)
 {
     KdScreenPriv(pDst->drawable.pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     if (fakexa->pMask != NULL)
-        ephyrFinishPipelinedAccess(fakexa->pMask, EXA_PREPARE_MASK);
+        xboatFinishPipelinedAccess(fakexa->pMask, EXA_PREPARE_MASK);
     if (fakexa->pSrc != NULL)
-        ephyrFinishPipelinedAccess(fakexa->pSrc, EXA_PREPARE_SRC);
-    ephyrFinishPipelinedAccess(fakexa->pDst, EXA_PREPARE_DEST);
+        xboatFinishPipelinedAccess(fakexa->pSrc, EXA_PREPARE_SRC);
+    xboatFinishPipelinedAccess(fakexa->pDst, EXA_PREPARE_DEST);
 }
 
 /**
  * Does fake acceleration of DownloadFromScren using memcpy.
  */
 static Bool
-ephyrDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h, char *dst,
+xboatDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h, char *dst,
                         int dst_pitch)
 {
     KdScreenPriv(pSrc->drawable.pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
     unsigned char *src;
     int src_pitch, cpp;
 
     if (pSrc->drawable.bitsPerPixel < 8)
         return FALSE;
 
-    ephyrPreparePipelinedAccess(pSrc, EXA_PREPARE_SRC);
+    xboatPreparePipelinedAccess(pSrc, EXA_PREPARE_SRC);
 
     cpp = pSrc->drawable.bitsPerPixel / 8;
     src_pitch = exaGetPixmapPitch(pSrc);
@@ -336,7 +336,7 @@ ephyrDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h, char *dst,
 
     exaMarkSync(pSrc->drawable.pScreen);
 
-    ephyrFinishPipelinedAccess(pSrc, EXA_PREPARE_SRC);
+    xboatFinishPipelinedAccess(pSrc, EXA_PREPARE_SRC);
 
     return TRUE;
 }
@@ -345,20 +345,20 @@ ephyrDownloadFromScreen(PixmapPtr pSrc, int x, int y, int w, int h, char *dst,
  * Does fake acceleration of UploadToScreen using memcpy.
  */
 static Bool
-ephyrUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
+xboatUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
                     int src_pitch)
 {
     KdScreenPriv(pDst->drawable.pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
     unsigned char *dst;
     int dst_pitch, cpp;
 
     if (pDst->drawable.bitsPerPixel < 8)
         return FALSE;
 
-    ephyrPreparePipelinedAccess(pDst, EXA_PREPARE_DEST);
+    xboatPreparePipelinedAccess(pDst, EXA_PREPARE_DEST);
 
     cpp = pDst->drawable.bitsPerPixel / 8;
     dst_pitch = exaGetPixmapPitch(pDst);
@@ -373,13 +373,13 @@ ephyrUploadToScreen(PixmapPtr pDst, int x, int y, int w, int h, char *src,
 
     exaMarkSync(pDst->drawable.pScreen);
 
-    ephyrFinishPipelinedAccess(pDst, EXA_PREPARE_DEST);
+    xboatFinishPipelinedAccess(pDst, EXA_PREPARE_DEST);
 
     return TRUE;
 }
 
 static Bool
-ephyrPrepareAccess(PixmapPtr pPix, int index)
+xboatPrepareAccess(PixmapPtr pPix, int index)
 {
     /* Make sure we don't somehow end up with a pointer that is in framebuffer
      * and hasn't been readied for us.
@@ -395,12 +395,12 @@ ephyrPrepareAccess(PixmapPtr pPix, int index)
  * yet.
  */
 static int
-ephyrMarkSync(ScreenPtr pScreen)
+xboatMarkSync(ScreenPtr pScreen)
 {
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     fakexa->is_synced = FALSE;
 
@@ -411,16 +411,16 @@ ephyrMarkSync(ScreenPtr pScreen)
  * Assumes that we're waiting on the latest marker.  When EXA gets smarter and
  * starts using markers in a fine-grained way (for example, waiting on drawing
  * to required pixmaps to complete, rather than waiting for all drawing to
- * complete), we'll want to make the ephyrMarkSync/ephyrWaitMarker
+ * complete), we'll want to make the xboatMarkSync/xboatWaitMarker
  * implementation fine-grained as well.
  */
 static void
-ephyrWaitMarker(ScreenPtr pScreen, int marker)
+xboatWaitMarker(ScreenPtr pScreen, int marker)
 {
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrFakexaPriv *fakexa = scrpriv->fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatFakexaPriv *fakexa = scrpriv->fakexa;
 
     fakexa->is_synced = TRUE;
 }
@@ -431,13 +431,13 @@ ephyrWaitMarker(ScreenPtr pScreen, int marker)
  * correct driver with which to test changes to the EXA core.
  */
 Bool
-ephyrDrawInit(ScreenPtr pScreen)
+xboatDrawInit(ScreenPtr pScreen)
 {
     KdScreenPriv(pScreen);
     KdScreenInfo *screen = pScreenPriv->screen;
-    EphyrScrPriv *scrpriv = screen->driver;
-    EphyrPriv *priv = screen->card->driver;
-    EphyrFakexaPriv *fakexa;
+    XboatScrPriv *scrpriv = screen->driver;
+    XboatPriv *priv = screen->card->driver;
+    XboatFakexaPriv *fakexa;
     Bool success;
 
     fakexa = calloc(1, sizeof(*fakexa));
@@ -451,7 +451,7 @@ ephyrDrawInit(ScreenPtr pScreen)
     }
 
     fakexa->exa->memoryBase = (CARD8 *) (priv->base);
-    fakexa->exa->memorySize = priv->bytes_per_line * ephyrBufferHeight(screen);
+    fakexa->exa->memorySize = priv->bytes_per_line * xboatBufferHeight(screen);
     fakexa->exa->offScreenBase = priv->bytes_per_line * screen->height;
 
     /* Since we statically link against EXA, we shouldn't have to be smart about
@@ -460,29 +460,29 @@ ephyrDrawInit(ScreenPtr pScreen)
     fakexa->exa->exa_major = 2;
     fakexa->exa->exa_minor = 0;
 
-    fakexa->exa->PrepareSolid = ephyrPrepareSolid;
-    fakexa->exa->Solid = ephyrSolid;
-    fakexa->exa->DoneSolid = ephyrDoneSolid;
+    fakexa->exa->PrepareSolid = xboatPrepareSolid;
+    fakexa->exa->Solid = xboatSolid;
+    fakexa->exa->DoneSolid = xboatDoneSolid;
 
-    fakexa->exa->PrepareCopy = ephyrPrepareCopy;
-    fakexa->exa->Copy = ephyrCopy;
-    fakexa->exa->DoneCopy = ephyrDoneCopy;
+    fakexa->exa->PrepareCopy = xboatPrepareCopy;
+    fakexa->exa->Copy = xboatCopy;
+    fakexa->exa->DoneCopy = xboatDoneCopy;
 
-    fakexa->exa->CheckComposite = ephyrCheckComposite;
-    fakexa->exa->PrepareComposite = ephyrPrepareComposite;
-    fakexa->exa->Composite = ephyrComposite;
-    fakexa->exa->DoneComposite = ephyrDoneComposite;
+    fakexa->exa->CheckComposite = xboatCheckComposite;
+    fakexa->exa->PrepareComposite = xboatPrepareComposite;
+    fakexa->exa->Composite = xboatComposite;
+    fakexa->exa->DoneComposite = xboatDoneComposite;
 
-    fakexa->exa->DownloadFromScreen = ephyrDownloadFromScreen;
-    fakexa->exa->UploadToScreen = ephyrUploadToScreen;
+    fakexa->exa->DownloadFromScreen = xboatDownloadFromScreen;
+    fakexa->exa->UploadToScreen = xboatUploadToScreen;
 
-    fakexa->exa->MarkSync = ephyrMarkSync;
-    fakexa->exa->WaitMarker = ephyrWaitMarker;
+    fakexa->exa->MarkSync = xboatMarkSync;
+    fakexa->exa->WaitMarker = xboatWaitMarker;
 
-    fakexa->exa->PrepareAccess = ephyrPrepareAccess;
+    fakexa->exa->PrepareAccess = xboatPrepareAccess;
 
-    fakexa->exa->pixmapOffsetAlign = EPHYR_OFFSET_ALIGN;
-    fakexa->exa->pixmapPitchAlign = EPHYR_PITCH_ALIGN;
+    fakexa->exa->pixmapOffsetAlign = XBOAT_OFFSET_ALIGN;
+    fakexa->exa->pixmapPitchAlign = XBOAT_PITCH_ALIGN;
 
     fakexa->exa->maxX = 1023;
     fakexa->exa->maxY = 1023;
@@ -504,17 +504,17 @@ ephyrDrawInit(ScreenPtr pScreen)
 }
 
 void
-ephyrDrawEnable(ScreenPtr pScreen)
+xboatDrawEnable(ScreenPtr pScreen)
 {
 }
 
 void
-ephyrDrawDisable(ScreenPtr pScreen)
+xboatDrawDisable(ScreenPtr pScreen)
 {
 }
 
 void
-ephyrDrawFini(ScreenPtr pScreen)
+xboatDrawFini(ScreenPtr pScreen)
 {
 }
 
