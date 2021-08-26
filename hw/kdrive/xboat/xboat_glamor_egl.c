@@ -172,7 +172,7 @@ void
 xboat_glamor_connect(void)
 {
     dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    eglInitialize(display, NULL, NULL);
+    eglInitialize(dpy, NULL, NULL);
 }
 
 void
@@ -251,12 +251,12 @@ xboat_glamor_egl_screen_init(ANativeWindow* win)
         return NULL;
     }
 
-    egl_surf = eglCreateWindowSurface(dpy, fb_config, win, NULL);
+    egl_surf = eglCreateWindowSurface(dpy, egl_config, win, NULL);
 
     if (xboat_glamor_gles2) {
         eglBindAPI(EGL_OPENGL_ES_API);
         static const int context_attribs[] = {
-            EGL_CONTEXT_CLIENT_VERSION, 2
+            EGL_CONTEXT_CLIENT_VERSION, 2,
             EGL_NONE,
         };
         ctx = eglCreateContext(dpy, egl_config, NULL, context_attribs);
@@ -311,7 +311,7 @@ xboat_glamor_egl_screen_fini(struct xboat_glamor *glamor)
 {
     eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroyContext(dpy, glamor->ctx);
-    eglDestroyWindow(dpy, glamor->egl_surf);
+    eglDestroySurface(dpy, glamor->egl_surf);
 
     free(glamor);
 }
