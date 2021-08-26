@@ -41,7 +41,7 @@ extern Bool xboatNoXV;
 
 void processScreenArg(const char *screen_size);
 
-int
+_X_EXPORT int
 main(int argc, char *argv[], char *envp[])
 {
     return dix_main(argc, argv, envp);
@@ -266,7 +266,7 @@ OsVendorInit(void)
 
     if (serverGeneration == 1) {
         if (!KdCardInfoLast()) {
-            processScreenArg("640x480", NULL);
+            processScreenArg("640x480");
         }
         hostboat_init();
     }
