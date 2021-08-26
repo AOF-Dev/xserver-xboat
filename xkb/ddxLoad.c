@@ -62,6 +62,10 @@ LoadXKM(unsigned want, unsigned need, const char *keymap, XkbDescPtr *xkbRtrn);
 static void
 OutputDirectory(char *outdir, size_t size)
 {
+    if (XkbOutDirectory != NULL && strlen(XkbOutDirectory) < size) {
+        (void) strcpy(outdir, XkbOutDirectory);
+    }
+    else
 #ifndef WIN32
     /* Can we write an xkm and then open it too? */
     if (access(XKM_OUTPUT_DIR, W_OK | X_OK) == 0 &&
@@ -137,12 +141,12 @@ RunXkbComp(xkbcomp_buffer_callback callback, void *userdata)
     }
 
     if (asprintf(&buf,
-                 "\"%s%sxkbcomp\" -w %d %s -xkm \"%s\" "
+                 "\"%s%sxkbcomp\" -w %d %s -I%s -xkm \"%s\" "
                  "-em1 %s -emp %s -eml %s \"%s%s.xkm\"",
                  xkbbindir, xkbbindirsep,
                  ((xkbDebugFlags < 2) ? 1 :
                   ((xkbDebugFlags > 10) ? 10 : (int) xkbDebugFlags)),
-                 xkbbasedirflag ? xkbbasedirflag : "", xkmfile,
+                 xkbbasedirflag ? xkbbasedirflag : "", XkbBaseDirectory, xkmfile,
                  PRE_ERROR_MSG, ERROR_PREFIX, POST_ERROR_MSG1,
                  xkm_output_dir, keymap) == -1)
         buf = NULL;
