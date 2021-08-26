@@ -22,61 +22,58 @@
  */
 
 /**
- * ephyr_glamor_glx.h
+ * xboat_glamor_egl.h
  *
- * Prototypes exposed by ephyr_glamor_glx.c, without including any
+ * Prototypes exposed by xboat_glamor_egl.c, without including any
  * server headers.
  */
 
-#include <xcb/xcb.h>
+#include <boat.h>
 #include "dix-config.h"
 
-struct ephyr_glamor;
+struct xboat_glamor;
 struct pixman_region16;
 
-xcb_connection_t *
-ephyr_glamor_connect(void);
+void
+xboat_glamor_set_texture(struct xboat_glamor *xboat_glamor, uint32_t tex);
 
 void
-ephyr_glamor_set_texture(struct ephyr_glamor *ephyr_glamor, uint32_t tex);
+xboat_glamor_get_visual(void);
 
-xcb_visualtype_t *
-ephyr_glamor_get_visual(void);
-
-struct ephyr_glamor *
-ephyr_glamor_glx_screen_init(xcb_window_t win);
+struct xboat_glamor *
+xboat_glamor_egl_screen_init(ANativeWindow* win);
 
 void
-ephyr_glamor_glx_screen_fini(struct ephyr_glamor *glamor);
+xboat_glamor_egl_screen_fini(struct xboat_glamor *glamor);
 
 #ifdef GLAMOR
 void
-ephyr_glamor_set_window_size(struct ephyr_glamor *glamor,
+xboat_glamor_set_window_size(struct xboat_glamor *glamor,
                              unsigned width, unsigned height);
 
 void
-ephyr_glamor_damage_redisplay(struct ephyr_glamor *glamor,
+xboat_glamor_damage_redisplay(struct xboat_glamor *glamor,
                               struct pixman_region16 *damage);
 
 void
-ephyr_glamor_process_event(xcb_generic_event_t *xev);
+xboat_glamor_process_event(BoatEvent *xev);
 
 #else /* !GLAMOR */
 
 static inline void
-ephyr_glamor_set_window_size(struct ephyr_glamor *glamor,
+xboat_glamor_set_window_size(struct xboat_glamor *glamor,
                              unsigned width, unsigned height)
 {
 }
 
 static inline void
-ephyr_glamor_damage_redisplay(struct ephyr_glamor *glamor,
+xboat_glamor_damage_redisplay(struct xboat_glamor *glamor,
                               struct pixman_region16 *damage)
 {
 }
 
 static inline void
-ephyr_glamor_process_event(xcb_generic_event_t *xev)
+xboat_glamor_process_event(BoatEvent *xev)
 {
 }
 
