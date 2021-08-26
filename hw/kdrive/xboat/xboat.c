@@ -154,10 +154,6 @@ xboatScreenInitialize(KdScreenInfo *screen)
             screen->fb.depth = 30;
             screen->fb.bitsPerPixel = 32;
         }
-        else if (screen->fb.depth == 32) {
-            screen->fb.depth = 32;
-            screen->fb.bitsPerPixel = 32;
-        }
         else {
             ErrorF("\nXboat: Unsupported screen depth %d\n", screen->fb.depth);
             return FALSE;
@@ -1075,9 +1071,6 @@ xboatBoatProcessEvents(Bool queued_only)
         }
 
         if (xev) {
-            if (xboat_glamor)
-                xboat_glamor_process_event(xev);
-
             free(xev);
         }
     }
