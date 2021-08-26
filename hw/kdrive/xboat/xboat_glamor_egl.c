@@ -21,49 +21,42 @@
  * IN THE SOFTWARE.
  */
 
-/** @file ephyr_glamor_glx.c
+/** @file xboat_glamor_egl.c
  *
- * Separate file for hiding Xlib and GLX-using parts of xephyr from
+ * Separate file for hiding Boat and EGL-using parts of xboat from
  * the rest of the server-struct-aware build.
  */
 
 #include <stdlib.h>
-#include <X11/Xlib.h>
-#include <X11/Xlibint.h>
-#undef Xcalloc
-#undef Xrealloc
-#undef Xfree
-#include <X11/Xlib-xcb.h>
-#include <xcb/xcb_aux.h>
+#include <boat.h>
 #include <pixman.h>
-#include <epoxy/glx.h>
-#include "ephyr_glamor_glx.h"
+#include <epoxy/egl.h>
+#include "xboat_glamor_egl.h"
 #include "os.h"
-#include <X11/Xproto.h>
 
 /* until we need geometry shaders GL3.1 should suffice. */
-/* Xephyr has it's own copy of this for build reasons */
+/* Xboat has it's own copy of this for build reasons */
 #define GLAMOR_GL_CORE_VER_MAJOR 3
 #define GLAMOR_GL_CORE_VER_MINOR 1
 /** @{
  *
- * global state for Xephyr with glamor.
+ * global state for Xboat with glamor.
  *
- * Xephyr can render with multiple windows, but all the windows have
+ * Xboat can render with multiple windows, but all the windows have
  * to be on the same X connection and all have to have the same
  * visual.
  */
 static Display *dpy;
 static XVisualInfo *visual_info;
 static GLXFBConfig fb_config;
-Bool ephyr_glamor_gles2;
-Bool ephyr_glamor_skip_present;
+Bool xboat_glamor_gles2;
+Bool xboat_glamor_skip_present;
 /** @} */
 
 /**
- * Per-screen state for Xephyr with glamor.
+ * Per-screen state for Xboat with glamor.
  */
-struct ephyr_glamor {
+struct xboat_glamor {
     GLXContext ctx;
     Window win;
     GLXWindow glx_win;
@@ -81,7 +74,7 @@ struct ephyr_glamor {
 };
 
 static GLint
-ephyr_glamor_compile_glsl_prog(GLenum type, const char *source)
+xboat_glamor_compile_glsl_prog(GLenum type, const char *source)
 {
     GLint ok;
     GLint prog;
@@ -112,7 +105,7 @@ ephyr_glamor_compile_glsl_prog(GLenum type, const char *source)
 }
 
 static GLuint
-ephyr_glamor_build_glsl_prog(GLuint vs, GLuint fs)
+xboat_glamor_build_glsl_prog(GLuint vs, GLuint fs)
 {
     GLint ok;
     GLuint prog;
@@ -139,7 +132,7 @@ ephyr_glamor_build_glsl_prog(GLuint vs, GLuint fs)
 }
 
 static void
-ephyr_glamor_setup_texturing_shader(struct ephyr_glamor *glamor)
+xboat_glamor_setup_texturing_shader(struct xboat_glamor *glamor)
 {
     const char *vs_source =
         "attribute vec2 texcoord;\n"
@@ -167,9 +160,9 @@ ephyr_glamor_setup_texturing_shader(struct ephyr_glamor *glamor)
 
     GLuint fs, vs, prog;
 
-    vs = ephyr_glamor_compile_glsl_prog(GL_VERTEX_SHADER, vs_source);
-    fs = ephyr_glamor_compile_glsl_prog(GL_FRAGMENT_SHADER, fs_source);
-    prog = ephyr_glamor_build_glsl_prog(vs, fs);
+    vs = xboat_glamor_compile_glsl_prog(GL_VERTEX_SHADER, vs_source);
+    fs = xboat_glamor_compile_glsl_prog(GL_FRAGMENT_SHADER, fs_source);
+    prog = xboat_glamor_build_glsl_prog(vs, fs);
 
     glamor->texture_shader = prog;
     glamor->texture_shader_position_loc = glGetAttribLocation(prog, "position");
@@ -178,26 +171,14 @@ ephyr_glamor_setup_texturing_shader(struct ephyr_glamor *glamor)
     assert(glamor->texture_shader_texcoord_loc != -1);
 }
 
-xcb_connection_t *
-ephyr_glamor_connect(void)
-{
-    dpy = XOpenDisplay(NULL);
-    if (!dpy)
-        return NULL;
-
-    XSetEventQueueOwner(dpy, XCBOwnsEventQueue);
-
-    return XGetXCBConnection(dpy);
-}
-
 void
-ephyr_glamor_set_texture(struct ephyr_glamor *glamor, uint32_t tex)
+xboat_glamor_set_texture(struct xboat_glamor *glamor, uint32_t tex)
 {
     glamor->tex = tex;
 }
 
 static void
-ephyr_glamor_set_vertices(struct ephyr_glamor *glamor)
+xboat_glamor_set_vertices(struct xboat_glamor *glamor)
 {
     glVertexAttribPointer(glamor->texture_shader_position_loc,
                           2, GL_FLOAT, FALSE, 0, (void *) 0);
@@ -209,7 +190,7 @@ ephyr_glamor_set_vertices(struct ephyr_glamor *glamor)
 }
 
 void
-ephyr_glamor_damage_redisplay(struct ephyr_glamor *glamor,
+xboat_glamor_damage_redisplay(struct xboat_glamor *glamor,
                               struct pixman_region16 *damage)
 {
     GLint old_vao;
@@ -218,7 +199,7 @@ ephyr_glamor_damage_redisplay(struct ephyr_glamor *glamor,
      * expensive, and if we're just running the X Test suite headless,
      * nobody's watching.
      */
-    if (ephyr_glamor_skip_present)
+    if (xboat_glamor_skip_present)
         return;
 
     glXMakeCurrent(dpy, glamor->glx_win, glamor->ctx);
@@ -229,7 +210,7 @@ ephyr_glamor_damage_redisplay(struct ephyr_glamor *glamor,
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glUseProgram(glamor->texture_shader);
     glViewport(0, 0, glamor->width, glamor->height);
-    if (!ephyr_glamor_gles2)
+    if (!xboat_glamor_gles2)
         glDisable(GL_COLOR_LOGIC_OP);
 
     glActiveTexture(GL_TEXTURE0);
@@ -249,7 +230,7 @@ ephyr_glamor_damage_redisplay(struct ephyr_glamor *glamor,
  * correctly get our invalidate events propagated into the driver.
  */
 void
-ephyr_glamor_process_event(xcb_generic_event_t *xev)
+xboat_glamor_process_event(xcb_generic_event_t *xev)
 {
 
     uint32_t response_type = xev->response_type & 0x7f;
@@ -276,13 +257,13 @@ ephyr_glamor_process_event(xcb_generic_event_t *xev)
 }
 
 static int
-ephyr_glx_error_handler(Display * _dpy, XErrorEvent * ev)
+xboat_egl_error_handler(Display * _dpy, XErrorEvent * ev)
 {
     return 0;
 }
 
-struct ephyr_glamor *
-ephyr_glamor_glx_screen_init(xcb_window_t win)
+struct xboat_glamor *
+xboat_glamor_egl_screen_init(xcb_window_t win)
 {
     int (*oldErrorHandler) (Display *, XErrorEvent *);
     static const float position[] = {
@@ -298,10 +279,10 @@ ephyr_glamor_glx_screen_init(xcb_window_t win)
     GLint old_vao;
 
     GLXContext ctx;
-    struct ephyr_glamor *glamor;
+    struct xboat_glamor *glamor;
     GLXWindow glx_win;
 
-    glamor = calloc(1, sizeof(struct ephyr_glamor));
+    glamor = calloc(1, sizeof(struct xboat_glamor));
     if (!glamor) {
         FatalError("malloc");
         return NULL;
@@ -309,7 +290,7 @@ ephyr_glamor_glx_screen_init(xcb_window_t win)
 
     glx_win = glXCreateWindow(dpy, fb_config, win, NULL);
 
-    if (ephyr_glamor_gles2) {
+    if (xboat_glamor_gles2) {
         static const int context_attribs[] = {
             GLX_CONTEXT_MAJOR_VERSION_ARB, 2,
             GLX_CONTEXT_MINOR_VERSION_ARB, 0,
@@ -321,7 +302,7 @@ ephyr_glamor_glx_screen_init(xcb_window_t win)
             ctx = glXCreateContextAttribsARB(dpy, fb_config, NULL, True,
                                              context_attribs);
         } else {
-            FatalError("Xephyr -glamor_gles2 rquires "
+            FatalError("Xboat -glamor_gles2 rquires "
                        "GLX_EXT_create_context_es2_profile\n");
         }
     } else {
@@ -336,7 +317,7 @@ ephyr_glamor_glx_screen_init(xcb_window_t win)
                 GLAMOR_GL_CORE_VER_MINOR,
                 0,
             };
-            oldErrorHandler = XSetErrorHandler(ephyr_glx_error_handler);
+            oldErrorHandler = XSetErrorHandler(xboat_glx_error_handler);
             ctx = glXCreateContextAttribsARB(dpy, fb_config, NULL, True,
                                              context_attribs);
             XSync(dpy, False);
@@ -357,7 +338,7 @@ ephyr_glamor_glx_screen_init(xcb_window_t win)
     glamor->ctx = ctx;
     glamor->win = win;
     glamor->glx_win = glx_win;
-    ephyr_glamor_setup_texturing_shader(glamor);
+    xboat_glamor_setup_texturing_shader(glamor);
 
     glGenVertexArrays(1, &glamor->vao);
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &old_vao);
@@ -368,14 +349,14 @@ ephyr_glamor_glx_screen_init(xcb_window_t win)
     glBindBuffer(GL_ARRAY_BUFFER, glamor->vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof (position), position, GL_STATIC_DRAW);
 
-    ephyr_glamor_set_vertices(glamor);
+    xboat_glamor_set_vertices(glamor);
     glBindVertexArray(old_vao);
 
     return glamor;
 }
 
 void
-ephyr_glamor_glx_screen_fini(struct ephyr_glamor *glamor)
+xboat_glamor_egl_screen_fini(struct xboat_glamor *glamor)
 {
     glXMakeCurrent(dpy, None, NULL);
     glXDestroyContext(dpy, glamor->ctx);
@@ -384,8 +365,8 @@ ephyr_glamor_glx_screen_fini(struct ephyr_glamor *glamor)
     free(glamor);
 }
 
-xcb_visualtype_t *
-ephyr_glamor_get_visual(void)
+void
+xboat_glamor_get_visual(void)
 {
     xcb_screen_t *xscreen =
         xcb_aux_get_screen(XGetXCBConnection(dpy), DefaultScreen(dpy));
@@ -418,7 +399,7 @@ ephyr_glamor_get_visual(void)
 }
 
 void
-ephyr_glamor_set_window_size(struct ephyr_glamor *glamor,
+xboat_glamor_set_window_size(struct xboat_glamor *glamor,
                              unsigned width, unsigned height)
 {
     if (!glamor)
