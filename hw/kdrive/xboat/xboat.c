@@ -154,6 +154,10 @@ xboatScreenInitialize(KdScreenInfo *screen)
             screen->fb.depth = 30;
             screen->fb.bitsPerPixel = 32;
         }
+        else if (screen->fb.depth == 32) {
+            screen->fb.depth = 32;
+            screen->fb.bitsPerPixel = 32;
+        }
         else {
             ErrorF("\nXboat: Unsupported screen depth %d\n", screen->fb.depth);
             return FALSE;
@@ -879,7 +883,8 @@ xboatProcessMouseMotion(BoatEvent *xev)
     if (xboatCursorScreen != screen->pScreen) {
         XBOAT_LOG("warping mouse cursor. "
                   "cur_screen:%d, motion_screen:%d\n",
-                  xboatCursorScreen->myNum, screen->pScreen->myNum);
+                  xboatCursorScreen ? xboatCursorScreen->myNum : -1,
+                  screen->pScreen->myNum);
         xboatWarpCursor(inputInfo.pointer, screen->pScreen,
                         motion->x, motion->y);
     }
