@@ -76,7 +76,7 @@ static xboat_image_t* xboat_image_create(uint16_t width, uint16_t height) {
     image->width = width;
     image->height = height;
     image->format = AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM;
-    image->depth = 32;
+    image->depth = 24;
     image->bpp = 32;
     image->stride = width * sizeof(pixel32_t);
     return image;
@@ -290,28 +290,17 @@ hostboat_init(void)
     XBOAT_DBG("mark");
 #ifdef GLAMOR
     if (xboat_glamor)
-        HostBoat.conn = xboat_glamor_connect();
-    else
+        xboat_glamor_connect();
 #endif
-        {}
 
     HostBoat.winroot = boatGetNativeWindow();
-    HostBoat.depth = 32; // only support 32bit-RGBA8888
+    HostBoat.depth = 24; // only support 32bit-RGBA8888
 #ifdef GLAMOR
     if (xboat_glamor) {
-        HostBoat.visual = xboat_glamor_get_visual();
-        if (HostBoat.visual->visual_id != xscreen->root_visual) {
-            attrs[1] = xcb_generate_id(HostBoat.conn);
-            attr_mask |= XCB_CW_COLORMAP;
-            xcb_create_colormap(HostBoat.conn,
-                                XCB_COLORMAP_ALLOC_NONE,
-                                attrs[1],
-                                HostBoat.winroot,
-                                HostBoat.visual->visual_id);
-        }
-    } else
+        xboat_glamor_get_visual();
+    }
 #endif
-        HostBoat.visual = &xboat_default_visual;
+    HostBoat.visual = &xboat_default_visual;
 
     for (index = 0; index < HostBoat.n_screens; index++) {
         KdScreenInfo *screen = HostBoat.screens[index];
@@ -327,7 +316,7 @@ hostboat_init(void)
 
         {
             hostboat_set_win_title(screen,
-                                "(touch Grab to grab mouse and keyboard)");
+                                   "(touch Grab to grab mouse and keyboard)");
 
             if (HostBoat.use_fullscreen) {
                 scrpriv->win_width  = ANativeWindow_getWidth(scrpriv->win);
@@ -507,11 +496,6 @@ hostboat_screen_init(KdScreenInfo *screen,
         /* Ask the WM to keep our size static */
         // Maybe we should disable MultiWindow mode on Android?
     }
-
-#ifdef GLAMOR
-    if (!xboat_glamor_skip_present)
-#endif
-        {}
 
     scrpriv->win_width = width;
     scrpriv->win_height = height;
@@ -728,11 +712,11 @@ xboat_glamor_init(ScreenPtr screen)
     KdScreenInfo *kd_screen = pScreenPriv->screen;
     XboatScrPriv *scrpriv = kd_screen->driver;
 
-    scrpriv->glamor = xboat_glamor_glx_screen_init(scrpriv->win);
+    scrpriv->glamor = xboat_glamor_egl_screen_init(scrpriv->win);
     xboat_glamor_set_window_size(scrpriv->glamor,
                                  scrpriv->win_width, scrpriv->win_height);
 
-    if (!glamor_init(screen, 0)) {
+    if (!glamor_init(screen, GLAMOR_USE_EGL_SCREEN)) {
         FatalError("Failed to initialize glamor\n");
         return FALSE;
     }
@@ -818,7 +802,7 @@ xboat_glamor_fini(ScreenPtr screen)
     XboatScrPriv *scrpriv = kd_screen->driver;
 
     glamor_fini(screen);
-    xboat_glamor_glx_screen_fini(scrpriv->glamor);
+    xboat_glamor_egl_screen_fini(scrpriv->glamor);
     scrpriv->glamor = NULL;
 }
 #endif
