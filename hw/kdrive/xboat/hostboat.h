@@ -26,6 +26,8 @@
 #ifndef _BOAT_STUFF_H_
 #define _BOAT_STUFF_H_
 
+#include <boat_keycodes.h>
+#include <boat.h>
 #include "xboat.h"
 
 #define XBOAT_WANT_DEBUG 0

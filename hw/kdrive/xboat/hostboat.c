@@ -42,7 +42,6 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 
-#include <boat.h>
 #ifdef GLAMOR
 #include <epoxy/gl.h>
 #include "glamor.h"
@@ -162,11 +161,13 @@ struct XboatHostBoatVars {
 
     long damage_debug_msec;
     Bool size_set_from_configure;
+
+    uint32_t debug_fill_color;
 };
 
 /* memset ( missing> ) instead of below  */
 /*static XboatHostBoatVars HostBoat = { "?", 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};*/
-static XboatHostBoatVars HostBoat;
+static struct XboatHostBoatVars HostBoat;
 
 static int HostBoatWantDamageDebug = 0;
 
@@ -484,8 +485,7 @@ hostboat_screen_init(KdScreenInfo *screen,
         XBOAT_DBG("Creating image %dx%d for screen scrpriv=%p\n",
                   width, buffer_height, scrpriv);
         scrpriv->ximg = xboat_image_create(width,
-                                           buffer_height,
-                                           HostBoat.depth);
+                                           buffer_height);
 
         /* Match server byte order so that the image can be converted to
          * the native byte order by xcb_image_put() before drawing */
@@ -653,7 +653,7 @@ hostboat_paint_debug_rect(KdScreenInfo *screen,
 
     /* fprintf(stderr, "Xboat updating: %i+%i %ix%i\n", x, y, width, height); */
 
-    xboat_fill_rectangle(debug_fill_color, scrpriv->win, x, y, width, height);
+    xboat_fill_rectangle(HostBoat.debug_fill_color, scrpriv->win, x, y, width, height);
 
     /* nanosleep seems to work better than usleep for me... */
     nanosleep(&tspec, NULL);
@@ -687,7 +687,7 @@ hostboat_size_set_from_configure(Bool ss)
 BoatEvent *
 hostboat_get_event(Bool queued_only)
 {
-    BoatEvent *xev;
+    BoatEvent *xev = NULL;
 
     if (HostBoat.saved_event) {
         xev = HostBoat.saved_event;
@@ -697,7 +697,7 @@ hostboat_get_event(Bool queued_only)
             xev = NULL; // xcb_poll_for_queued_event(HostBoat.conn);
         } else {
             xev = malloc(sizeof(BoatEvent));
-            if (!boatPollEvent(xev)) {
+            if (!boatWaitForEvent(0) || !boatPollEvent(xev)) {
                 free(xev);
                 xev = NULL;
             }
