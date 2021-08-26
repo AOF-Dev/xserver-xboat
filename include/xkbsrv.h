@@ -307,6 +307,7 @@ extern _X_EXPORT int XkbEventBase;
 extern _X_EXPORT int XkbKeyboardErrorCode;
 extern _X_EXPORT const char *XkbBaseDirectory;
 extern _X_EXPORT const char *XkbBinDirectory;
+extern _X_EXPORT const char *XkbOutDirectory;
 
 extern _X_EXPORT CARD32 xkbDebugFlags;
 

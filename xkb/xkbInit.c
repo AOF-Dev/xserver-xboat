@@ -89,6 +89,7 @@ typedef struct _SrvXkmInfo {
 
 const char *XkbBaseDirectory = XKB_BASE_DIRECTORY;
 const char *XkbBinDirectory = XKB_BIN_DIRECTORY;
+const char *XkbOutDirectory = NULL;
 static int XkbWantAccessX = 0;
 
 static char *XkbRulesDflt = NULL;
@@ -759,6 +760,56 @@ XkbProcessArguments(int argc, char *argv[], int i)
                 }
                 else {
                     LogMessage(X_ERROR, "-xkbdir pathname too long\n");
+                    return -1;
+                }
+            }
+        }
+        else {
+            return -1;
+        }
+    }
+    else if (strncmp(argv[i], "-xkbbindir", 10) == 0) {
+        if (++i < argc) {
+#if !defined(WIN32) && !defined(__CYGWIN__)
+            if (getuid() != geteuid()) {
+                LogMessage(X_WARNING,
+                           "-xkbbindir is not available for setuid X servers\n");
+                return -1;
+            }
+            else
+#endif
+            {
+                if (strlen(argv[i]) < PATH_MAX) {
+                    XkbBinDirectory = argv[i];
+                    return 2;
+                }
+                else {
+                    LogMessage(X_ERROR, "-xkbbindir pathname too long\n");
+                    return -1;
+                }
+            }
+        }
+        else {
+            return -1;
+        }
+    }
+    else if (strncmp(argv[i], "-xkboutdir", 10) == 0) {
+        if (++i < argc) {
+#if !defined(WIN32) && !defined(__CYGWIN__)
+            if (getuid() != geteuid()) {
+                LogMessage(X_WARNING,
+                           "-xkboutdir is not available for setuid X servers\n");
+                return -1;
+            }
+            else
+#endif
+            {
+                if (strlen(argv[i]) < PATH_MAX) {
+                    XkbOutDirectory = argv[i];
+                    return 2;
+                }
+                else {
+                    LogMessage(X_ERROR, "-xkboutdir pathname too long\n");
                     return -1;
                 }
             }
