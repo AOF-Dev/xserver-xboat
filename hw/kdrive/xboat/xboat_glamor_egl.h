@@ -35,6 +35,9 @@ struct xboat_glamor;
 struct pixman_region16;
 
 void
+xboat_glamor_connect(void);
+
+void
 xboat_glamor_set_texture(struct xboat_glamor *xboat_glamor, uint32_t tex);
 
 void
@@ -54,9 +57,6 @@ xboat_glamor_set_window_size(struct xboat_glamor *glamor,
 void
 xboat_glamor_damage_redisplay(struct xboat_glamor *glamor,
                               struct pixman_region16 *damage);
-
-void
-xboat_glamor_process_event(BoatEvent *xev);
 
 #else /* !GLAMOR */
 

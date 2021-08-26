@@ -42,13 +42,10 @@
  *
  * global state for Xboat with glamor.
  *
- * Xboat can render with multiple windows, but all the windows have
- * to be on the same X connection and all have to have the same
- * visual.
+ * Xboat can render with only one windows.
  */
-static Display *dpy;
-static XVisualInfo *visual_info;
-static GLXFBConfig fb_config;
+static EGLDisplay dpy;
+static EGLConfig egl_config;
 Bool xboat_glamor_gles2;
 Bool xboat_glamor_skip_present;
 /** @} */
@@ -57,9 +54,9 @@ Bool xboat_glamor_skip_present;
  * Per-screen state for Xboat with glamor.
  */
 struct xboat_glamor {
-    GLXContext ctx;
-    Window win;
-    GLXWindow glx_win;
+    EGLContext ctx;
+    ANativeWindow* win;
+    EGLSurface* egl_surf;
 
     GLuint tex;
 
@@ -172,6 +169,13 @@ xboat_glamor_setup_texturing_shader(struct xboat_glamor *glamor)
 }
 
 void
+xboat_glamor_connect(void)
+{
+    dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    eglInitialize(display, NULL, NULL);
+}
+
+void
 xboat_glamor_set_texture(struct xboat_glamor *glamor, uint32_t tex)
 {
     glamor->tex = tex;
@@ -202,7 +206,7 @@ xboat_glamor_damage_redisplay(struct xboat_glamor *glamor,
     if (xboat_glamor_skip_present)
         return;
 
-    glXMakeCurrent(dpy, glamor->glx_win, glamor->ctx);
+    eglMakeCurrent(dpy, glamor->egl_surf, glamor->egl_surf, glamor->ctx);
 
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &old_vao);
     glBindVertexArray(glamor->vao);
@@ -219,53 +223,12 @@ xboat_glamor_damage_redisplay(struct xboat_glamor *glamor,
 
     glBindVertexArray(old_vao);
 
-    glXSwapBuffers(dpy, glamor->glx_win);
-}
-
-/**
- * Xlib-based handling of xcb events for glamor.
- *
- * We need to let the Xlib event filtering run on the event so that
- * Mesa's dri2_glx.c userspace event mangling gets run, and we
- * correctly get our invalidate events propagated into the driver.
- */
-void
-xboat_glamor_process_event(xcb_generic_event_t *xev)
-{
-
-    uint32_t response_type = xev->response_type & 0x7f;
-    /* Note the types on wire_to_event: there's an Xlib XEvent (with
-     * the broken types) that it returns, and a protocol xEvent that
-     * it inspects.
-     */
-    Bool (*wire_to_event)(Display *dpy, XEvent *ret, xEvent *event);
-
-    XLockDisplay(dpy);
-    /* Set the event handler to NULL to get access to the current one. */
-    wire_to_event = XESetWireToEvent(dpy, response_type, NULL);
-    if (wire_to_event) {
-        XEvent processed_event;
-
-        /* OK they had an event handler.  Plug it back in, and call
-         * through to it.
-         */
-        XESetWireToEvent(dpy, response_type, wire_to_event);
-        xev->sequence = LastKnownRequestProcessed(dpy);
-        wire_to_event(dpy, &processed_event, (xEvent *)xev);
-    }
-    XUnlockDisplay(dpy);
-}
-
-static int
-xboat_egl_error_handler(Display * _dpy, XErrorEvent * ev)
-{
-    return 0;
+    eglSwapBuffers(dpy, glamor->egl_surf);
 }
 
 struct xboat_glamor *
-xboat_glamor_egl_screen_init(xcb_window_t win)
+xboat_glamor_egl_screen_init(ANativeWindow* win)
 {
-    int (*oldErrorHandler) (Display *, XErrorEvent *);
     static const float position[] = {
         -1, -1,
          1, -1,
@@ -278,9 +241,9 @@ xboat_glamor_egl_screen_init(xcb_window_t win)
     };
     GLint old_vao;
 
-    GLXContext ctx;
+    EGLContext ctx;
     struct xboat_glamor *glamor;
-    GLXWindow glx_win;
+    EGLSurface egl_surf;
 
     glamor = calloc(1, sizeof(struct xboat_glamor));
     if (!glamor) {
@@ -288,56 +251,44 @@ xboat_glamor_egl_screen_init(xcb_window_t win)
         return NULL;
     }
 
-    glx_win = glXCreateWindow(dpy, fb_config, win, NULL);
+    egl_surf = eglCreateWindowSurface(dpy, fb_config, win, NULL);
 
     if (xboat_glamor_gles2) {
+        eglBindAPI(EGL_OPENGL_ES_API);
         static const int context_attribs[] = {
-            GLX_CONTEXT_MAJOR_VERSION_ARB, 2,
-            GLX_CONTEXT_MINOR_VERSION_ARB, 0,
-            GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_ES_PROFILE_BIT_EXT,
-            0,
+            EGL_CONTEXT_CLIENT_VERSION, 2
+            EGL_NONE,
         };
-        if (epoxy_has_glx_extension(dpy, DefaultScreen(dpy),
-                                    "GLX_EXT_create_context_es2_profile")) {
-            ctx = glXCreateContextAttribsARB(dpy, fb_config, NULL, True,
-                                             context_attribs);
-        } else {
-            FatalError("Xboat -glamor_gles2 rquires "
-                       "GLX_EXT_create_context_es2_profile\n");
-        }
+        ctx = eglCreateContext(dpy, egl_config, NULL, context_attribs);
     } else {
-        if (epoxy_has_glx_extension(dpy, DefaultScreen(dpy),
-                                    "GLX_ARB_create_context")) {
+        eglBindAPI(EGL_OPENGL_API);
+        if (epoxy_has_egl_extension(dpy, "EGL_KHR_create_context")) {
             static const int context_attribs[] = {
-                GLX_CONTEXT_PROFILE_MASK_ARB,
-                GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
-                GLX_CONTEXT_MAJOR_VERSION_ARB,
+                EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR,
+                EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR,
+                EGL_CONTEXT_MAJOR_VERSION_KHR,
                 GLAMOR_GL_CORE_VER_MAJOR,
-                GLX_CONTEXT_MINOR_VERSION_ARB,
+                EGL_CONTEXT_MINOR_VERSION_KHR,
                 GLAMOR_GL_CORE_VER_MINOR,
-                0,
+                EGL_NONE,
             };
-            oldErrorHandler = XSetErrorHandler(xboat_glx_error_handler);
-            ctx = glXCreateContextAttribsARB(dpy, fb_config, NULL, True,
-                                             context_attribs);
-            XSync(dpy, False);
-            XSetErrorHandler(oldErrorHandler);
+            ctx = eglCreateContext(dpy, egl_config, NULL, context_attribs);
         } else {
             ctx = NULL;
         }
 
         if (!ctx)
-            ctx = glXCreateContext(dpy, visual_info, NULL, True);
+            ctx = eglCreateContext(dpy, egl_config, NULL, NULL);
     }
     if (ctx == NULL)
-        FatalError("glXCreateContext failed\n");
+        FatalError("eglCreateContext failed\n");
 
-    if (!glXMakeCurrent(dpy, glx_win, ctx))
-        FatalError("glXMakeCurrent failed\n");
+    if (!eglMakeCurrent(dpy, egl_surf, egl_surf, ctx))
+        FatalError("eglMakeCurrent failed\n");
 
     glamor->ctx = ctx;
     glamor->win = win;
-    glamor->glx_win = glx_win;
+    glamor->egl_surf = egl_surf;
     xboat_glamor_setup_texturing_shader(glamor);
 
     glGenVertexArrays(1, &glamor->vao);
@@ -358,9 +309,9 @@ xboat_glamor_egl_screen_init(xcb_window_t win)
 void
 xboat_glamor_egl_screen_fini(struct xboat_glamor *glamor)
 {
-    glXMakeCurrent(dpy, None, NULL);
-    glXDestroyContext(dpy, glamor->ctx);
-    glXDestroyWindow(dpy, glamor->glx_win);
+    eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+    eglDestroyContext(dpy, glamor->ctx);
+    eglDestroyWindow(dpy, glamor->egl_surf);
 
     free(glamor);
 }
@@ -368,34 +319,23 @@ xboat_glamor_egl_screen_fini(struct xboat_glamor *glamor)
 void
 xboat_glamor_get_visual(void)
 {
-    xcb_screen_t *xscreen =
-        xcb_aux_get_screen(XGetXCBConnection(dpy), DefaultScreen(dpy));
     int attribs[] = {
-        GLX_RENDER_TYPE, GLX_RGBA_BIT,
-        GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-        GLX_RED_SIZE, 1,
-        GLX_GREEN_SIZE, 1,
-        GLX_BLUE_SIZE, 1,
-        GLX_DOUBLEBUFFER, 1,
-        None
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_RED_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_BLUE_SIZE, 8,
+        EGL_NONE
     };
-    int event_base = 0, error_base = 0, nelements;
-    GLXFBConfig *fbconfigs;
+    int num_configs;
+    EGLConfig *egl_configs;
 
-    if (!glXQueryExtension (dpy, &error_base, &event_base))
-        FatalError("Couldn't find GLX extension\n");
-
-    fbconfigs = glXChooseFBConfig(dpy, DefaultScreen(dpy), attribs, &nelements);
-    if (!nelements)
-        FatalError("Couldn't choose an FBConfig\n");
-    fb_config = fbconfigs[0];
-    free(fbconfigs);
-
-    visual_info = glXGetVisualFromFBConfig(dpy, fb_config);
-    if (visual_info == NULL)
-        FatalError("Couldn't get RGB visual\n");
-
-    return xcb_aux_find_visual_by_id(xscreen, visual_info->visualid);
+    eglChooseConfig(dpy, attribs, NULL, 0, &num_configs);
+    egl_configs = calloc(num_configs, sizeof(EGLConfig));
+    eglChooseConfig(dpy, attribs, egl_configs, num_configs, &num_configs);
+    if (!num_configs)
+        FatalError("Couldn't choose an EGLConfig\n");
+    egl_config = egl_configs[0];
+    free(egl_configs);
 }
 
 void
