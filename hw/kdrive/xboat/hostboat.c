@@ -99,7 +99,12 @@ static void xboat_image_put(xboat_image_t *image, ANativeWindow* window,
                             uint32_t dst_x, uint32_t dst_y,
                             uint32_t width, uint32_t height) {
     ANativeWindow_Buffer buffer;
-    ANativeWindow_lock(window, &buffer, NULL);
+    ARect rect;
+    rect.left = dst_x;
+    rect.top = dst_y;
+    rect.right = dst_x + width;
+    rect.bottom = dst_y + height;
+    ANativeWindow_lock(window, &buffer, &rect);
     uint32_t dst_stride = buffer.stride * sizeof(pixel32_t);
     uint32_t src_stride = image->stride;
     uint8_t* dst_line = (uint8_t*)buffer.bits + dst_y * dst_stride;
@@ -119,7 +124,12 @@ static void xboat_fill_rectangle(uint32_t fill_color, ANativeWindow* window,
                                  uint32_t x, uint32_t y,
                                  uint32_t width, uint32_t height) {
     ANativeWindow_Buffer buffer;
-    ANativeWindow_lock(window, &buffer, NULL);
+    ARect rect;
+    rect.left = x;
+    rect.top = y;
+    rect.right = x + width;
+    rect.bottom = y + height;
+    ANativeWindow_lock(window, &buffer, &rect);
     pixel32_t* line = (pixel32_t*)buffer.bits + y * buffer.stride;
     line += x;
     for (uint32_t j = 0; j < height; j++) {
