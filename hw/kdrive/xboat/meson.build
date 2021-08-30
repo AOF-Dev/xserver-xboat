@@ -22,7 +22,7 @@ if build_glamor
     xboat_dep += epoxy_dep
 endif
 
-executable(
+shared_library(
     'Xboat',
     srcs,
     include_directories: [
