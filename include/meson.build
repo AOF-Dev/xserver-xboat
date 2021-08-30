@@ -172,7 +172,11 @@ conf_data.set('DGA', build_dga)
 conf_data.set('DPMSExtension', build_dpms)
 conf_data.set('DRI2', build_dri2)
 conf_data.set('DRI3', build_dri3)
-conf_data.set_quoted('DRI_DRIVER_PATH', dri_dep.get_pkgconfig_variable('dridriverdir'))
+if dri_dep.found()
+    conf_data.set_quoted('DRI_DRIVER_PATH', dri_dep.get_pkgconfig_variable('dridriverdir'))
+else
+    conf_data.set_quoted('DRI_DRIVER_PATH', '')
+endif
 conf_data.set('HAS_SHM', build_mitshm)
 conf_data.set('MITSHM', build_mitshm)
 conf_data.set('PANORAMIX', build_xinerama)
