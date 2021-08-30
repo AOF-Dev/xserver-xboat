@@ -1018,6 +1018,18 @@ xboatProcessConfigureNotify(BoatEvent *xev)
 }
 
 static void
+xboatProcessBoatMessage(BoatEvent *xev)
+{
+    /* Received CloseRequest from Boat, exit now.
+     */
+    if (xev->message == CloseRequest) {
+        CloseWellKnownConnections();
+        OsCleanup(1);
+        exit(1);
+    }
+}
+
+static void
 xboatBoatProcessEvents(Bool queued_only)
 {
     BoatEvent *configure = NULL;
@@ -1026,15 +1038,6 @@ xboatBoatProcessEvents(Bool queued_only)
         BoatEvent *xev = hostboat_get_event(queued_only);
 
         if (!xev) {
-            /* If Boat has error (for example, Boat activity was
-             * closed), exit now.
-             */
-            if (boatGetErrorCode()) {
-                CloseWellKnownConnections();
-                OsCleanup(1);
-                exit(1);
-            }
-
             break;
         }
 
@@ -1067,6 +1070,10 @@ xboatBoatProcessEvents(Bool queued_only)
             free(configure);
             configure = xev;
             xev = NULL;
+            break;
+
+        case BoatMessage:
+            xboatProcessBoatMessage(xev);
             break;
         }
 
