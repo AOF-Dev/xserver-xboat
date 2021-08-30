@@ -570,7 +570,7 @@ subdir('Xi')
 if build_glamor
     subdir('glamor')
 endif
-if build_xorg or get_option('xephyr')
+if build_xorg or get_option('xephyr') or get_option('xboat')
     subdir('exa')
 endif
 

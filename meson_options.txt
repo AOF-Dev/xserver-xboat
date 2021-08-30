@@ -2,6 +2,8 @@ option('xorg', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
        description: 'Enable Xorg X Server')
 option('xephyr', type: 'boolean', value: false,
        description: 'Enable Xephyr nested X server')
+option('xboat', type: 'boolean', value: false,
+       description: 'Enable Xboat X server')
 option('xwayland', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
        description: 'Enable XWayland X server')
 option('glamor', type: 'combo', choices: ['true', 'false', 'auto'], value: 'auto',
