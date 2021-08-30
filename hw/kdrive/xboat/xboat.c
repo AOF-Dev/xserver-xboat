@@ -660,13 +660,11 @@ xboatInitScreen(ScreenPtr pScreen)
 
 #ifdef XV
     if (!xboatNoXV) {
-        if (xboat_glamor)
+        if (xboat_glamor) {
             xboat_glamor_xv_init(pScreen);
-        else if (!xboatInitVideo(pScreen)) {
-            XBOAT_LOG_ERROR("failed to initialize xvideo\n");
         }
         else {
-            XBOAT_LOG("initialized xvideo okay\n");
+            XBOAT_LOG_ERROR("failed to initialize xvideo\n");
         }
     }
 #endif /*XV*/

@@ -211,10 +211,6 @@ void xboat_glamor_disable(ScreenPtr pScreen);
 void xboat_glamor_fini(ScreenPtr pScreen);
 void xboat_glamor_host_paint_rect(ScreenPtr pScreen);
 
-/*ephyvideo.c*/
-
-Bool xboatInitVideo(ScreenPtr pScreen);
-
 /* xboat_glamor_xv.c */
 #ifdef GLAMOR
 void xboat_glamor_xv_init(ScreenPtr screen);
