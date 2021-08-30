@@ -27,7 +27,7 @@
 
 #include "kdrive.h"
 #include "kxv.h"
-#include "ephyr.h"
+#include "xboat.h"
 #include "glamor_priv.h"
 
 #include <X11/extensions/Xv.h>
@@ -40,7 +40,7 @@ static KdVideoFormatRec Formats[NUM_FORMATS] = {
 };
 
 static void
-ephyr_glamor_xv_stop_video(KdScreenInfo *screen, void *data, Bool cleanup)
+xboat_glamor_xv_stop_video(KdScreenInfo *screen, void *data, Bool cleanup)
 {
     if (!cleanup)
         return;
@@ -49,21 +49,21 @@ ephyr_glamor_xv_stop_video(KdScreenInfo *screen, void *data, Bool cleanup)
 }
 
 static int
-ephyr_glamor_xv_set_port_attribute(KdScreenInfo *screen,
+xboat_glamor_xv_set_port_attribute(KdScreenInfo *screen,
                                    Atom attribute, INT32 value, void *data)
 {
     return glamor_xv_set_port_attribute(data, attribute, value);
 }
 
 static int
-ephyr_glamor_xv_get_port_attribute(KdScreenInfo *screen,
+xboat_glamor_xv_get_port_attribute(KdScreenInfo *screen,
                                    Atom attribute, INT32 *value, void *data)
 {
     return glamor_xv_get_port_attribute(data, attribute, value);
 }
 
 static void
-ephyr_glamor_xv_query_best_size(KdScreenInfo *screen,
+xboat_glamor_xv_query_best_size(KdScreenInfo *screen,
                                 Bool motion,
                                 short vid_w, short vid_h,
                                 short drw_w, short drw_h,
@@ -75,7 +75,7 @@ ephyr_glamor_xv_query_best_size(KdScreenInfo *screen,
 }
 
 static int
-ephyr_glamor_xv_query_image_attributes(KdScreenInfo *screen,
+xboat_glamor_xv_query_image_attributes(KdScreenInfo *screen,
                                        int id,
                                        unsigned short *w, unsigned short *h,
                                        int *pitches, int *offsets)
@@ -84,7 +84,7 @@ ephyr_glamor_xv_query_image_attributes(KdScreenInfo *screen,
 }
 
 static int
-ephyr_glamor_xv_put_image(KdScreenInfo *screen,
+xboat_glamor_xv_put_image(KdScreenInfo *screen,
                           DrawablePtr pDrawable,
                           short src_x, short src_y,
                           short drw_x, short drw_y,
@@ -106,7 +106,7 @@ ephyr_glamor_xv_put_image(KdScreenInfo *screen,
 }
 
 void
-ephyr_glamor_xv_init(ScreenPtr screen)
+xboat_glamor_xv_init(ScreenPtr screen)
 {
     KdVideoAdaptorRec *adaptor;
     glamor_port_private *port_privates;
@@ -150,12 +150,12 @@ ephyr_glamor_xv_init(ScreenPtr screen)
     adaptor->pImages = glamor_xv_images;
     adaptor->nImages = glamor_xv_num_images;
 
-    adaptor->StopVideo = ephyr_glamor_xv_stop_video;
-    adaptor->SetPortAttribute = ephyr_glamor_xv_set_port_attribute;
-    adaptor->GetPortAttribute = ephyr_glamor_xv_get_port_attribute;
-    adaptor->QueryBestSize = ephyr_glamor_xv_query_best_size;
-    adaptor->PutImage = ephyr_glamor_xv_put_image;
-    adaptor->QueryImageAttributes = ephyr_glamor_xv_query_image_attributes;
+    adaptor->StopVideo = xboat_glamor_xv_stop_video;
+    adaptor->SetPortAttribute = xboat_glamor_xv_set_port_attribute;
+    adaptor->GetPortAttribute = xboat_glamor_xv_get_port_attribute;
+    adaptor->QueryBestSize = xboat_glamor_xv_query_best_size;
+    adaptor->PutImage = xboat_glamor_xv_put_image;
+    adaptor->QueryImageAttributes = xboat_glamor_xv_query_image_attributes;
 
     KdXVScreenInit(screen, adaptor, 1);
 }
