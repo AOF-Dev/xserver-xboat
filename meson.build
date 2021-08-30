@@ -96,6 +96,12 @@ nettle_dep = dependency('nettle')
 dbus_required = get_option('systemd_logind') == 'true'
 dbus_dep = dependency('dbus-1', version: '>= 1.0', required: dbus_required)
 
+build_libunwind = false
+libunwind_dep = dependency('libunwind', required: get_option('libunwind'))
+if libunwind_dep.found()
+    build_libunwind = true
+endif
+
 build_hashtable = false
 
 # Resolve default values of some options
@@ -477,6 +483,8 @@ common_dep = [
     xkbfile_dep,
     xfont2_dep,
     xdmcp_dep,
+
+    libunwind_dep,
 ]
 
 inc = include_directories(

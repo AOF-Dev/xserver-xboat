@@ -177,6 +177,7 @@ if dri_dep.found()
 else
     conf_data.set_quoted('DRI_DRIVER_PATH', '')
 endif
+conf_data.set('HAVE_LIBUNWIND', build_libunwind)
 conf_data.set('HAS_SHM', build_mitshm)
 conf_data.set('MITSHM', build_mitshm)
 conf_data.set('PANORAMIX', build_xinerama)
